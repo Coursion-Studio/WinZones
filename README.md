@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/kuraydev/WinZones/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/kuraydev/WinZones?style=flat-square&color=4c8dff"></a>
-  <a href="https://github.com/kuraydev/WinZones/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/kuraydev/WinZones/total?style=flat-square&color=7c3aed"></a>
+  <a href="https://github.com/Coursion-Studio/WinZones/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Coursion-Studio/WinZones?style=flat-square&color=4c8dff"></a>
+  <a href="https://github.com/Coursion-Studio/WinZones/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/Coursion-Studio/WinZones/total?style=flat-square&color=7c3aed"></a>
   <img alt="Windows 10 / 11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4?style=flat-square&logo=windows">
   <img alt="Size" src="https://img.shields.io/badge/size-~280%20KB-ff9a1f?style=flat-square">
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square"></a>
@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/kuraydev/WinZones/releases/latest"><b>⬇ Download WinZones</b></a>
+  <a href="https://github.com/Coursion-Studio/WinZones/releases/latest"><b>⬇ Download WinZones</b></a>
   &nbsp;·&nbsp; <a href="#-features">Features</a>
   &nbsp;·&nbsp; <a href="#%EF%B8%8F-shortcuts">Shortcuts</a>
   &nbsp;·&nbsp; <a href="#-how-smart-arrange-works">Smart arrange</a>
@@ -70,7 +70,7 @@
 
 ## 🚀 Install
 
-1. Download **`WinZones-x.y.z-win.zip`** from the [latest release](https://github.com/kuraydev/WinZones/releases/latest).
+1. Download **`WinZones-x.y.z-win.zip`** from the [latest release](https://github.com/Coursion-Studio/WinZones/releases/latest).
 2. Extract it anywhere, for example `C:\Tools\WinZones`.
 3. Run **`WinZones.exe`**. Settings open on first launch, and WinZones lives in the system tray.
 4. Optional: turn on **Settings → General → Start with Windows**.
@@ -162,7 +162,7 @@ Another program (or Windows itself) already registered that combination. Pick a 
 There's nothing to install, because the C# compiler that ships with Windows is enough.
 
 ```bat
-git clone https://github.com/kuraydev/WinZones.git
+git clone https://github.com/Coursion-Studio/WinZones.git
 cd WinZones
 build.bat          :: -> WinZones.exe
 release.bat        :: -> dist\WinZones-<version>-win.zip (+ .sha256)

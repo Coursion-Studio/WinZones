@@ -24,7 +24,7 @@ namespace WinZones
         public const string Name = "WinZones";
         public const string Version = "1.1.0";
         public const string Author = "kuraydev";
-        public const string Url = "https://github.com/kuraydev/WinZones";
+        public const string Url = "https://github.com/Coursion-Studio/WinZones";
         public const string Tagline = "Zones, hotkeys and smart auto-arrange for Windows";
 
         public const string License =
