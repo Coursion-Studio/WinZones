@@ -1,0 +1,9 @@
+# build output
+WinZones.exe
+dist/
+*.pdb
+
+# local settings (portable mode) and backups
+winzones.json
+winzones.json.bad
+portable.txt
