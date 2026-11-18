@@ -39,11 +39,19 @@
 | 🪄 **Smart auto-arrange** | One key (or drop a window on the orange pill) tiles **all** open windows. Editors and browsers get big columns; chat, music and terminals are stacked at the sides. |
 | 📐 **Your own layouts** | A visual editor lets you draw any layout. Each monitor remembers its own layout. Ultrawide, 16:9 and portrait presets are built in. |
 | ⌨️ **Global shortcuts** | Snap to zone 1–9, cycle zones, switch layouts, fill, center, move to the next monitor, undo. Every shortcut can be rebound. |
+| ⚡ **Command menu** | Right-click the tray icon for a Raycast-style palette: type to filter layouts and commands, then use the arrow keys and <kbd>Enter</kbd>. |
 | 🎞️ **Smooth, but light** | Windows glide into place, and the overlay fades and cross-fades. Only small layers are redrawn, so it stays smooth even on 5K ultrawides. |
 | ↩️ **Undo** | <kbd>Win</kbd>+<kbd>Alt</kbd>+<kbd>Z</kbd> puts windows back where they were, and you can undo several steps. |
 | 🪶 **Tiny & private** | A single ~280 KB exe with no installer, no runtime to download, no telemetry and no internet access. Portable mode is built in. |
 
 ## 📸 Screenshots
+
+<table>
+  <tr>
+    <td width="50%" align="center"><img src="docs/menu.png" alt="Tray command menu" width="80%"><br><sub><b>Right-click the tray icon:</b> a command menu with layouts, shortcuts and toggles.</sub></td>
+    <td width="50%" align="center"><img src="docs/menu-search.png" alt="Type to filter" width="80%"><br><sub><b>Just type</b> to filter, then press <kbd>Enter</kbd>.</sub><br><br><img src="docs/toast-success.png" alt="Toast" width="80%"><br><sub>Quiet toasts instead of Windows balloon tips.</sub></td>
+  </tr>
+</table>
 
 <table>
   <tr>
@@ -86,6 +94,7 @@
 | Fill screen / center | <kbd>Win</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd> / <kbd>Win</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> |
 | Move to next monitor | <kbd>Win</kbd>+<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>M</kbd> |
 | Settings | Click the tray icon, or start `WinZones.exe` again |
+| Command menu | Right-click the tray icon, then type to filter |
 
 To change a shortcut, go to **Settings → Shortcuts**, click a box and press the new keys. If another app already uses a combination, WinZones shows *"In use by another app"*.
 
@@ -163,8 +172,32 @@ release.bat        :: -> dist\WinZones-<version>-win.zip (+ .sha256)
 |---|---|
 | `WinZones.cs` | Core: zones, drag tracking, hotkeys, smart arrange, window animation, tray app |
 | `Overlay.cs` | Glass zone overlay: cached layered windows, gliding highlight, window preview |
-| `Ui.cs` | Settings window, themed controls, icon artwork, app info / version |
+| `Ui.cs` | Settings window, icon artwork, app info / version |
+| `kit/` | **WinKit**, the reusable UI kit (see below) |
 | `app.manifest` | Per-monitor DPI awareness, Windows 10/11 |
+
+### 🎨 WinKit: reuse the look in your own apps
+
+The whole UI is built on **WinKit**, a small, dependency-free WinForms kit with a dark Raycast/Linear-style look. It lives in [`kit/`](kit) and has no ties to WinZones. Copy the folder into any .NET Framework 4.x WinForms project and use:
+
+| | |
+|---|---|
+| `Theme`, `Icons` | Design tokens (colors, radii, motion, fonts) + Segoe Fluent icon glyphs |
+| `Gfx`, `Ease`, `Tween` | Rounded shapes, soft shadows, keycaps, and a tiny animation engine |
+| `KitMenu`, `MenuEntry` | Command-palette popup with search, sections, toggles and shortcut hints |
+| `Toast`, `KitDialog` | HUD toasts and dialogs (prompt / confirm / info) |
+| `KitButton`, `KitToggle`, `KitSlider`, `KitStepper`, `KitDropdown`, `KitTextBox`, `KitCard`, `KitNavItem` | Animated, DPI-aware controls |
+| `LayeredSurface` | Per-pixel-alpha window you draw once and then move or fade cheaply |
+
+```csharp
+var menu = new WinKit.KitMenu(new[] {
+    WinKit.MenuEntry.Header("Actions"),
+    WinKit.MenuEntry.Item("Do something", WinKit.Icons.Rocket, () => Run(), "Ctrl+K"),
+    WinKit.MenuEntry.Toggle("Dark mode", WinKit.Icons.Brush, true, on => Apply(on)),
+});
+menu.ShowAt(Cursor.Position);
+WinKit.Toast.Show("Saved", "Your changes are stored.", WinKit.ToastKind.Success);
+```
 
 ## 🤝 Contributing
 

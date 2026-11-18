@@ -1011,7 +1011,7 @@ namespace WinZones
 
         private void SaveAndClose()
         {
-            if (zones.Count == 0) { MessageBox.Show(this, "Draw at least one zone first.", "WinZones"); return; }
+            if (zones.Count == 0) { WinKit.KitDialog.Info(this, "Nothing to save", "Draw at least one zone first."); return; }
             string name = Dialogs.Prompt(this, "Save layout", "Layout name (same name overwrites):", startName);
             if (string.IsNullOrWhiteSpace(name)) return;
             var sorted = zones.OrderBy(z => Math.Round(z.X, 1)).ThenBy(z => z.Y).ToList();
@@ -1101,30 +1101,7 @@ namespace WinZones
     {
         public static string Prompt(IWin32Window owner, string title, string label, string def)
         {
-            float sc = 1f;
-            var ctl = owner as Control;
-            if (ctl != null) sc = Math.Max(1f, N.GetDpiForWindow(ctl.Handle) / 96f);
-            using (var f = new Form())
-            using (var font = new Font("Segoe UI", 12f * sc, GraphicsUnit.Pixel))
-            {
-                f.Text = title;
-                f.Font = font;
-                f.FormBorderStyle = FormBorderStyle.FixedDialog;
-                f.StartPosition = FormStartPosition.CenterScreen;
-                f.TopMost = true;
-                f.MinimizeBox = false;
-                f.MaximizeBox = false;
-                f.ShowInTaskbar = false;
-                f.ClientSize = new Size((int)(380 * sc), (int)(120 * sc));
-                var lbl = new Label { Text = label, Left = (int)(12 * sc), Top = (int)(12 * sc), AutoSize = true };
-                var tb = new TextBox { Text = def, Left = (int)(12 * sc), Top = (int)(38 * sc), Width = (int)(356 * sc) };
-                var ok = new Button { Text = "Save", DialogResult = DialogResult.OK, Left = (int)(200 * sc), Top = (int)(78 * sc), Width = (int)(80 * sc), Height = (int)(30 * sc) };
-                var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, Left = (int)(288 * sc), Top = (int)(78 * sc), Width = (int)(80 * sc), Height = (int)(30 * sc) };
-                f.Controls.AddRange(new Control[] { lbl, tb, ok, cancel });
-                f.AcceptButton = ok;
-                f.CancelButton = cancel;
-                return f.ShowDialog(owner) == DialogResult.OK ? tb.Text : null;
-            }
+            return WinKit.KitDialog.Prompt(owner, title, label, def);
         }
     }
 
@@ -1183,15 +1160,13 @@ namespace WinZones
             tray.Icon = IconArt.MakeIcon((int)Math.Round(16 * dpi));
             tray.Text = AppInfo.Name;
             tray.Visible = true;
-            tray.ContextMenuStrip = new ContextMenuStrip();
-            tray.ContextMenuStrip.Opening += (s, e) => { BuildMenu(); e.Cancel = false; };
+            WinKit.Toast.AppIcon = IconArt.Draw(64);
+            tray.MouseUp += (s, e) => { if (e.Button == MouseButtons.Right) ShowTrayMenu(); };
             // single click = settings, double click = auto-arrange
             clickTimer.Interval = SystemInformation.DoubleClickTime;
             clickTimer.Tick += (s, e) => { clickTimer.Stop(); ShowSettings(null); };
             tray.MouseClick += (s, e) => { if (e.Button == MouseButtons.Left) clickTimer.Start(); };
             tray.DoubleClick += (s, e) => { clickTimer.Stop(); AutoArrange(); };
-            BuildMenu();
-
             hk.Pressed += OnHotkey;
             RegisterHotkeys(true);
 
@@ -1204,7 +1179,7 @@ namespace WinZones
                 winEventProc, 0, 0, N.WINEVENT_OUTOFCONTEXT | N.WINEVENT_SKIPOWNPROCESS);
 
             if (err != null)
-                MessageBox.Show("winzones.json could not be read, defaults are used.\nA copy was saved as winzones.json.bad\n\n" + err, AppInfo.Name);
+                WinKit.KitDialog.Info(null, "Settings file could not be read", "Defaults are used for now. A copy was saved as winzones.json.bad.\n\n" + err, true);
             else if (firstRun)
                 ShowSettings("General");
             else
@@ -1596,68 +1571,68 @@ namespace WinZones
         }
 
         // ----------------------------------------------------------------- tray
-        private void BuildMenu()
+        /// The tray right-click menu: a Raycast-style command palette (type to filter, arrows + Enter).
+        public List<WinKit.MenuEntry> BuildMenuEntries()
         {
-            var menu = tray.ContextMenuStrip;
-            menu.Items.Clear();
-            menu.Items.Add(Item("Settings...", (s, e) => ShowSettings(null), true));
-            menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add(Item("Auto-arrange all windows" + HotkeyHint("AutoArrange"), (s, e) => AutoArrange()));
-            menu.Items.Add(Item("Undo last move" + HotkeyHint("Undo"), (s, e) => Undo()));
-            menu.Items.Add(new ToolStripSeparator());
+            var items = new List<WinKit.MenuEntry>();
+            items.Add(WinKit.MenuEntry.Header("Actions"));
+            items.Add(WinKit.MenuEntry.Item("Auto-arrange all windows", WinKit.Icons.Sparkle, AutoArrange, Hotkey("AutoArrange")));
+            items.Add(WinKit.MenuEntry.Item("Undo last move", WinKit.Icons.Undo, Undo, Hotkey("Undo")));
+            items.Add(WinKit.MenuEntry.Item("Settings", WinKit.Icons.Settings, () => ShowSettings(null)));
 
             var mons = Monitor.All();
             for (int mi = 0; mi < mons.Count; mi++)
             {
                 var m = mons[mi];
-                var parent = new ToolStripMenuItem(mons.Count == 1
-                    ? "Layout"
-                    : "Layout - Monitor " + (mi + 1) + " (" + m.Bounds.Width + "x" + m.Bounds.Height + ")");
+                items.Add(WinKit.MenuEntry.Header(mons.Count == 1 ? "Layout" : "Layout · Monitor " + (mi + 1)));
                 var active = LayoutFor(m);
                 foreach (var l in cfg.Layouts)
                 {
                     var lay = l;
-                    var it = new ToolStripMenuItem(lay.Name + "  (" + lay.Zones.Count + " zones)");
-                    it.Checked = lay == active;
-                    it.Click += (s, e) => SetLayout(m, lay.Name, true);
-                    parent.DropDownItems.Add(it);
+                    var e = WinKit.MenuEntry.Item(lay.Name, null, () => SetLayout(m, lay.Name, true));
+                    e.Checked = lay == active;
+                    e.Thumb = lay.Zones.Select(z => new RectangleF((float)z.X / 100f, (float)z.Y / 100f, (float)z.W / 100f, (float)z.H / 100f)).ToList();
+                    e.Keywords = "layout " + lay.Zones.Count + " zones";
+                    items.Add(e);
                 }
-                parent.DropDownItems.Add(new ToolStripSeparator());
-                parent.DropDownItems.Add(Item("Edit current layout...", (s, e) => OpenEditor(m, LayoutFor(m))));
-                parent.DropDownItems.Add(Item("Create new layout...", (s, e) => OpenEditor(m, null)));
-                parent.DropDownItems.Add(Item("Delete current layout", (s, e) => DeleteLayout(m)));
-                menu.Items.Add(parent);
+                items.Add(WinKit.MenuEntry.Item("Edit current layout", WinKit.Icons.Edit, () => OpenEditor(m, LayoutFor(m)), Hotkey("EditLayout")));
+                items.Add(WinKit.MenuEntry.Item("New layout", WinKit.Icons.Add, () => OpenEditor(m, null)));
             }
 
-            menu.Items.Add(new ToolStripSeparator());
-            var startup = new ToolStripMenuItem("Start with Windows") { Checked = IsStartupEnabled() };
-            startup.Click += (s, e) => SetStartup(!IsStartupEnabled());
-            menu.Items.Add(startup);
-            menu.Items.Add(Item("Shortcuts...", (s, e) => ShowSettings("Shortcuts")));
-            menu.Items.Add(Item("About " + AppInfo.Name, (s, e) => ShowSettings("About")));
-            menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add(Item("Exit", (s, e) => ExitThread()));
+            items.Add(WinKit.MenuEntry.Header("Preferences"));
+            items.Add(WinKit.MenuEntry.Toggle("Start with Windows", WinKit.Icons.Startup, IsStartupEnabled(), on => SetStartup(on)));
+            items.Add(WinKit.MenuEntry.Toggle("Animations", WinKit.Icons.Sparkle, cfg.Animate, on => { cfg.Animate = on; SaveConfig(); }));
+            items.Add(WinKit.MenuEntry.Item("Shortcuts", WinKit.Icons.Keyboard, () => ShowSettings("Shortcuts")));
+            items.Add(WinKit.MenuEntry.Item("About " + AppInfo.Name, WinKit.Icons.Info, () => ShowSettings("About")));
+            items.Add(WinKit.MenuEntry.Separator());
+            var quit = WinKit.MenuEntry.Item("Quit " + AppInfo.Name, WinKit.Icons.Power, ExitThread);
+            items.Add(quit);
+            return items;
         }
 
-        private string HotkeyHint(string action)
+        private void ShowTrayMenu()
+        {
+            clickTimer.Stop();
+            var menu = new WinKit.KitMenu(BuildMenuEntries())
+            {
+                FooterText = AppInfo.Name,
+                FooterIcon = IconArt.Draw(32),
+                Placeholder = "Search layouts and commands...",
+            };
+            menu.ShowAt(Cursor.Position);
+        }
+
+        private string Hotkey(string action)
         {
             string v;
-            return cfg.Hotkeys.TryGetValue(action, out v) && !string.IsNullOrWhiteSpace(v) ? "   (" + v + ")" : "";
-        }
-
-        private static ToolStripMenuItem Item(string text, EventHandler click, bool bold = false)
-        {
-            var it = new ToolStripMenuItem(text);
-            it.Click += click;
-            if (bold) it.Font = new Font(it.Font, FontStyle.Bold);
-            return it;
+            return cfg.Hotkeys.TryGetValue(action, out v) && !string.IsNullOrWhiteSpace(v) ? v : null;
         }
 
         private void DeleteLayout(Monitor m)
         {
             if (cfg.Layouts.Count <= 1) { Notify("You need at least one layout."); return; }
             var l = LayoutFor(m);
-            if (MessageBox.Show("Delete layout '" + l.Name + "'?", "WinZones", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
+            if (!WinKit.KitDialog.Confirm(null, "Delete layout?", "'" + l.Name + "' will be removed. This cannot be undone.", "Delete", true)) return;
             cfg.Layouts.Remove(l);
             foreach (var k in cfg.ActiveLayouts.Where(kv => kv.Value == l.Name).Select(kv => kv.Key).ToList()) cfg.ActiveLayouts.Remove(k);
             SaveConfig();
@@ -1667,7 +1642,7 @@ namespace WinZones
         {
             string err;
             var c = ConfigStore.Load(out err);
-            if (err != null) { MessageBox.Show("Config error (keeping the previous settings):\n" + err, AppInfo.Name); return; }
+            if (err != null) { WinKit.KitDialog.Info(null, "Settings file has an error", "Keeping the previous settings.\n\n" + err, true); return; }
             cfg = c;
             RegisterHotkeys(true);
             if (ConfigChanged != null) ConfigChanged();
@@ -1690,12 +1665,17 @@ namespace WinZones
             }
         }
 
+        /// Shows a small toast (bottom of the screen) instead of a Windows balloon tip.
         private void Notify(string text)
         {
             if (!cfg.Notifications) return;
-            tray.BalloonTipTitle = AppInfo.Name;
-            tray.BalloonTipText = text;
-            tray.ShowBalloonTip(2500);
+            string lower = text.ToLowerInvariant();
+            var kind = lower.Contains("could not") || lower.Contains("taken") || lower.Contains("refused") || lower.Contains("error")
+                ? WinKit.ToastKind.Warning
+                : lower.StartsWith("arranged") || lower.Contains("saved") || lower.Contains("reloaded") ? WinKit.ToastKind.Success
+                : WinKit.ToastKind.Info;
+            string title = kind == WinKit.ToastKind.Success ? "Done" : kind == WinKit.ToastKind.Warning ? "Heads up" : AppInfo.Name;
+            WinKit.Toast.Show(title, text, kind);
         }
 
         protected override void ExitThreadCore()

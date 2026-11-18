@@ -12,6 +12,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using WinKit;
 
 namespace WinZones
 {
@@ -21,7 +22,7 @@ namespace WinZones
     internal static class AppInfo
     {
         public const string Name = "WinZones";
-        public const string Version = "1.0.0";
+        public const string Version = "1.1.0";
         public const string Author = "kuraydev";
         public const string Url = "https://github.com/kuraydev/WinZones";
         public const string Tagline = "Zones, hotkeys and smart auto-arrange for Windows";
@@ -228,26 +229,26 @@ namespace WinZones
     }
 
     // =====================================================================================
-    //  Theme
+    //  Theme (mapped onto the shared WinKit design tokens)
     // =====================================================================================
     internal static class T
     {
-        public static readonly Color Bg = Color.FromArgb(32, 32, 36);
-        public static readonly Color Sidebar = Color.FromArgb(24, 24, 28);
-        public static readonly Color Card = Color.FromArgb(43, 43, 49);
-        public static readonly Color CardHover = Color.FromArgb(52, 52, 59);
-        public static readonly Color Control = Color.FromArgb(58, 58, 66);
-        public static readonly Color ControlHover = Color.FromArgb(70, 70, 80);
-        public static readonly Color Border = Color.FromArgb(66, 66, 76);
-        public static readonly Color Text = Color.FromArgb(240, 240, 245);
-        public static readonly Color Sub = Color.FromArgb(160, 162, 175);
-        public static readonly Color Accent = Color.FromArgb(76, 140, 255);
-        public static readonly Color AccentHover = Color.FromArgb(100, 158, 255);
-        public static readonly Color AccentDim = Color.FromArgb(40, 70, 130);
-        public static readonly Color Orange = Color.FromArgb(255, 150, 30);
-        public static readonly Color Bad = Color.FromArgb(255, 110, 110);
+        public static readonly Color Bg = Theme.Bg;
+        public static readonly Color Sidebar = Theme.Sidebar;
+        public static readonly Color Card = Theme.Surface;
+        public static readonly Color CardHover = Theme.Elevated;
+        public static readonly Color Control = Theme.Control;
+        public static readonly Color ControlHover = Theme.ControlHover;
+        public static readonly Color Border = Theme.Border;
+        public static readonly Color Text = Theme.Text;
+        public static readonly Color Sub = Theme.TextSub;
+        public static readonly Color Accent = Theme.Accent2;
+        public static readonly Color AccentHover = Color.FromArgb(110, 165, 255);
+        public static readonly Color AccentDim = Theme.AccentSoft;
+        public static readonly Color Orange = Theme.Warning;
+        public static readonly Color Bad = Theme.Danger;
 
-        public static Font F(float size, FontStyle style = FontStyle.Regular) { return new Font("Segoe UI", size, style); }
+        public static Font F(float size, FontStyle style = FontStyle.Regular) { return new Font(Theme.UiFamily, size, style); }
 
         public static Label Lbl(string text, float size = 9.75f, bool bold = false, Color? color = null)
         {
@@ -262,25 +263,10 @@ namespace WinZones
             };
         }
 
-        public static Button Btn(string text, bool accent = false)
+        public static KitButton Btn(string text, bool accent = false, string icon = null)
         {
-            var b = new Button
-            {
-                Text = text,
-                FlatStyle = FlatStyle.Flat,
-                AutoSize = true,
-                AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                Padding = new Padding(10, 3, 10, 3),
-                Margin = new Padding(6, 0, 0, 0),
-                BackColor = accent ? Accent : Control,
-                ForeColor = Color.White,
-                Font = F(9.25f),
-                Cursor = Cursors.Hand,
-                UseVisualStyleBackColor = false,
-            };
-            b.FlatAppearance.BorderColor = accent ? Accent : Border;
-            b.FlatAppearance.MouseOverBackColor = accent ? AccentHover : ControlHover;
-            b.FlatAppearance.MouseDownBackColor = accent ? AccentDim : Card;
+            var b = new KitButton(text, accent ? ButtonStyle.Primary : ButtonStyle.Secondary, icon);
+            b.Margin = new Padding(6, 0, 0, 0);
             return b;
         }
 
@@ -290,25 +276,25 @@ namespace WinZones
             g.BorderStyle = BorderStyle.None;
             g.EnableHeadersVisualStyles = false;
             g.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None;
-            g.ColumnHeadersDefaultCellStyle.BackColor = Sidebar;
-            g.ColumnHeadersDefaultCellStyle.ForeColor = Sub;
-            g.ColumnHeadersDefaultCellStyle.SelectionBackColor = Sidebar;
-            g.ColumnHeadersDefaultCellStyle.Font = F(9f, FontStyle.Bold);
-            g.ColumnHeadersDefaultCellStyle.Padding = new Padding(4, 4, 4, 4);
+            g.ColumnHeadersDefaultCellStyle.BackColor = Card;
+            g.ColumnHeadersDefaultCellStyle.ForeColor = Theme.TextMuted;
+            g.ColumnHeadersDefaultCellStyle.SelectionBackColor = Card;
+            g.ColumnHeadersDefaultCellStyle.Font = F(8.75f, FontStyle.Bold);
+            g.ColumnHeadersDefaultCellStyle.Padding = new Padding(8, 6, 4, 6);
             g.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             g.DefaultCellStyle.BackColor = Card;
             g.DefaultCellStyle.ForeColor = Text;
-            g.DefaultCellStyle.SelectionBackColor = AccentDim;
+            g.DefaultCellStyle.SelectionBackColor = Theme.AccentSoft;
             g.DefaultCellStyle.SelectionForeColor = Color.White;
             g.DefaultCellStyle.Font = F(9.25f);
-            g.DefaultCellStyle.Padding = new Padding(4, 0, 4, 0);
+            g.DefaultCellStyle.Padding = new Padding(8, 0, 4, 0);
             g.GridColor = Border;
             g.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
             g.RowHeadersVisible = false;
             g.AllowUserToResizeRows = false;
             g.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             g.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-            g.RowTemplate.Height = 30;
+            g.RowTemplate.Height = 34;
         }
 
         /// Gives scrollbars of panels, grids, lists and text boxes the Windows dark style.
@@ -324,126 +310,58 @@ namespace WinZones
 
         public static void DarkTitleBar(IntPtr hwnd)
         {
-            try
-            {
-                int on = 1;
-                N.DwmSetWindowAttribute(hwnd, 20 /*DWMWA_USE_IMMERSIVE_DARK_MODE*/, ref on, 4);
-                int caption = Sidebar.R | (Sidebar.G << 8) | (Sidebar.B << 16);
-                N.DwmSetWindowAttribute(hwnd, 35 /*DWMWA_CAPTION_COLOR*/, ref caption, 4);
-            }
-            catch { }
+            WinKit.Native.StyleWindow(hwnd, Sidebar);
         }
     }
 
     // ----------------------------------------------------------------- themed controls
-    internal class Toggle : CheckBox
-    {
-        public Toggle()
-        {
-            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
-            AutoSize = false;
-            Size = new Size(44, 22);
-            Cursor = Cursors.Hand;
-            Text = "";
-            Margin = new Padding(0);
-        }
-
-        protected override void OnPaint(PaintEventArgs e)
-        {
-            var g = e.Graphics;
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.Clear(Parent != null ? Parent.BackColor : T.Card);
-            var r = new RectangleF(1, 1, Width - 3, Height - 3);
-            using (var path = Geo.Rounded(r, r.Height / 2))
-            {
-                if (Checked) using (var b = new SolidBrush(T.Accent)) g.FillPath(b, path);
-                else using (var p = new Pen(T.Sub, 1.5f)) g.DrawPath(p, path);
-            }
-            float d = r.Height - (Checked ? 8 : 10);
-            float x = Checked ? r.Right - d - 4 : r.X + 5;
-            using (var b = new SolidBrush(Checked ? Color.White : T.Sub))
-                g.FillEllipse(b, x, r.Y + (r.Height - d) / 2, d, d);
-        }
-    }
+    internal class Toggle : KitToggle { }
 
     internal class Canvas : Panel
     {
         public Canvas() { DoubleBuffered = true; ResizeRedraw = true; }
     }
 
-    internal class NavItem : Control
-    {
-        public bool Selected;
-        private bool hover;
-        public NavItem(string text)
-        {
-            Text = text;
-            Height = 40;
-            Dock = DockStyle.Top;
-            Cursor = Cursors.Hand;
-            Font = T.F(10f);
-            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
-        }
-        protected override void OnMouseEnter(EventArgs e) { hover = true; Invalidate(); base.OnMouseEnter(e); }
-        protected override void OnMouseLeave(EventArgs e) { hover = false; Invalidate(); base.OnMouseLeave(e); }
-        protected override void OnPaint(PaintEventArgs e)
-        {
-            var g = e.Graphics;
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
-            g.Clear(T.Sidebar);
-            var r = new RectangleF(8, 3, Width - 16, Height - 6);
-            if (Selected || hover)
-                using (var path = Geo.Rounded(r, 6))
-                using (var b = new SolidBrush(Selected ? T.Card : Color.FromArgb(34, 34, 40)))
-                    g.FillPath(b, path);
-            if (Selected)
-                using (var path = Geo.Rounded(new RectangleF(8, Height / 2f - 8, 3, 16), 1.5f))
-                using (var b = new SolidBrush(T.Accent))
-                    g.FillPath(b, path);
-            TextRenderer.DrawText(g, Text, Font, new Rectangle(24, 0, Width - 24, Height), Selected ? Color.White : T.Sub,
-                TextFormatFlags.VerticalCenter | TextFormatFlags.Left);
-        }
-    }
-
-    /// Text box that records a key combination when focused.
-    internal class HotkeyBox : TextBox
+    /// Records a key combination when focused and shows it as key caps.
+    internal class HotkeyBox : KitControl
     {
         public event Action<string> Changed;
         public event Action Finished;
         private string value = "";
-        private const string Prompt = "Press a shortcut...";
+        private string live;
+        private bool recording;
 
         public HotkeyBox()
         {
-            ReadOnly = true;
-            ShortcutsEnabled = false;
-            BackColor = T.Control;
-            ForeColor = T.Text;
-            BorderStyle = BorderStyle.FixedSingle;
-            TextAlign = HorizontalAlignment.Center;
-            Width = 210;
-            Cursor = Cursors.Hand;
-            Font = T.F(9.75f);
+            Size = new Size(230, 32);
+            TabStop = true;
         }
 
         public string Value
         {
             get { return value; }
-            set { this.value = value ?? ""; Text = this.value.Length == 0 ? "(none)" : this.value; }
+            set { this.value = value ?? ""; Invalidate(); }
         }
 
-        protected override void OnEnter(EventArgs e) { base.OnEnter(e); BackColor = T.AccentDim; Text = Prompt; }
+        protected override void OnClick(EventArgs e) { base.OnClick(e); Focus(); }
+        protected override void OnEnter(EventArgs e) { base.OnEnter(e); recording = true; live = null; Invalidate(); }
 
         protected override void OnLeave(EventArgs e)
         {
             base.OnLeave(e);
-            BackColor = T.Control;
-            Value = value;
+            recording = false;
+            live = null;
+            Invalidate();
             if (Finished != null) Finished();
         }
 
         protected override bool IsInputKey(Keys keyData) { return true; }
+
+        private void Done()
+        {
+            var f = FindForm();
+            if (f != null) f.ActiveControl = null;
+        }
 
         protected override void OnKeyDown(KeyEventArgs e)
         {
@@ -451,12 +369,12 @@ namespace WinZones
             e.SuppressKeyPress = true;
             var k = e.KeyCode;
             bool win = N.KeyDown(0x5B) || N.KeyDown(0x5C);
-            if (k == Keys.Escape) { var f = FindForm(); if (f != null) f.ActiveControl = null; return; }
+            if (k == Keys.Escape) { Done(); return; }
             if ((k == Keys.Back || k == Keys.Delete) && !e.Control && !e.Alt && !e.Shift && !win)
             {
                 value = "";
-                Text = "(none)";
                 if (Changed != null) Changed("");
+                Done();
                 return;
             }
             var parts = new List<string>();
@@ -465,12 +383,12 @@ namespace WinZones
             if (e.Alt) parts.Add("Alt");
             if (e.Shift) parts.Add("Shift");
             bool isMod = k == Keys.ShiftKey || k == Keys.ControlKey || k == Keys.Menu || k == Keys.LWin || k == Keys.RWin;
-            if (isMod) { Text = parts.Count > 0 ? string.Join("+", parts) + "+ ..." : Prompt; return; }
-            if (parts.Count == 0 || (parts.Count == 1 && parts[0] == "Shift")) { Text = "Add Win, Ctrl or Alt"; return; }
+            if (isMod) { live = parts.Count > 0 ? string.Join("+", parts) : null; Invalidate(); return; }
+            if (parts.Count == 0 || (parts.Count == 1 && parts[0] == "Shift")) { live = "!"; Invalidate(); return; }
             parts.Add(KeyName(k));
             value = string.Join("+", parts);
-            Text = value;
             if (Changed != null) Changed(value);
+            Done();
         }
 
         protected override void OnKeyUp(KeyEventArgs e) { e.Handled = true; e.SuppressKeyPress = true; }
@@ -479,6 +397,29 @@ namespace WinZones
         {
             if (k >= Keys.D0 && k <= Keys.D9) return ((int)(k - Keys.D0)).ToString();
             return k.ToString();
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            BeginPaint(g);
+            float s = S;
+            var r = new RectangleF(1, 1, Width - 2.5f, Height - 2.5f);
+            float rad = Theme.RadiusMd * s;
+            Gfx.FillRound(g, r, rad, recording ? Theme.AccentSoft : Gfx.Lerp(Theme.Control, Theme.ControlHover, hover));
+            Gfx.StrokeRound(g, r, rad, recording ? Theme.Accent2 : Gfx.Lerp(Theme.Border, Theme.BorderStrong, hover), recording ? 1.6f : 1f);
+            if (recording) Gfx.StrokeRound(g, RectangleF.Inflate(r, 2, 2), rad + 2, Gfx.Alpha(Theme.Accent2, 50), 3f);
+
+            if (recording && (live == null || live == "!"))
+            {
+                Gfx.Text(g, live == "!" ? "Add Win, Ctrl or Alt" : "Press keys...", Theme.Ui(9.5f), new RectangleF(0, 0, Width, Height),
+                    live == "!" ? Theme.Warning : Color.FromArgb(200, 215, 255), StringAlignment.Center);
+                return;
+            }
+            string show = recording ? live + "+..." : value;
+            if (string.IsNullOrEmpty(show)) { Gfx.Text(g, "Not set", Theme.Ui(9.5f), new RectangleF(0, 0, Width, Height), Theme.TextMuted, StringAlignment.Center); return; }
+            float w = Gfx.KeycapsWidth(g, show, s);
+            Gfx.Keycaps(g, show, (Width - w) / 2, Height / 2f, s, !recording);
         }
     }
 
@@ -491,10 +432,10 @@ namespace WinZones
         private readonly Panel content = new Panel { Dock = DockStyle.Fill, BackColor = T.Bg, Padding = new Padding(28, 20, 28, 20) };
         private readonly Panel sidebar = new Panel { Dock = DockStyle.Left, Width = 220, BackColor = T.Sidebar };
         private readonly Dictionary<string, Control> pages = new Dictionary<string, Control>();
-        private readonly Dictionary<string, NavItem> navs = new Dictionary<string, NavItem>();
+        private readonly Dictionary<string, KitNavItem> navs = new Dictionary<string, KitNavItem>();
 
         // layouts page
-        private ComboBox monitorBox;
+        private KitDropdown monitorBox;
         private ListBox layoutList;
         private Canvas preview;
         private List<Monitor> monitors = new List<Monitor>();
@@ -593,18 +534,23 @@ namespace WinZones
         // ----------------------------------------------------------------- shell
         private void BuildSidebar()
         {
-            var header = new Panel { Dock = DockStyle.Top, Height = 92, BackColor = T.Sidebar };
-            var logo = new PictureBox { Image = IconArt.Draw(44), SizeMode = PictureBoxSizeMode.Zoom, Size = new Size(44, 44), Location = new Point(20, 24) };
-            var name = T.Lbl(AppInfo.Name, 14f, true);
-            name.Location = new Point(74, 22);
-            var ver = T.Lbl("Version " + AppInfo.Version, 8.75f, false, T.Sub);
-            ver.Location = new Point(76, 52);
+            var header = new Panel { Dock = DockStyle.Top, Height = 84, BackColor = T.Sidebar };
+            var logo = new PictureBox { Image = IconArt.Draw(36), SizeMode = PictureBoxSizeMode.Zoom, Size = new Size(36, 36), Location = new Point(20, 26), BackColor = T.Sidebar };
+            var name = T.Lbl(AppInfo.Name, 12.5f, true);
+            name.Location = new Point(64, 24);
+            var ver = T.Lbl("v" + AppInfo.Version, 8.5f, false, Theme.TextMuted);
+            ver.Location = new Point(66, 47);
             header.Controls.AddRange(new Control[] { logo, name, ver });
 
-            var navHost = new Panel { Dock = DockStyle.Fill, BackColor = T.Sidebar, Padding = new Padding(0, 8, 0, 0) };
+            var navHost = new Panel { Dock = DockStyle.Fill, BackColor = T.Sidebar, Padding = new Padding(0, 6, 0, 0) };
+            var glyphs = new Dictionary<string, string>
+            {
+                { "General", Icons.Settings }, { "Layouts", Icons.Tiles }, { "Shortcuts", Icons.Keyboard },
+                { "Smart arrange", Icons.Sparkle }, { "About", Icons.Info }
+            };
             foreach (var p in new[] { "General", "Layouts", "Shortcuts", "Smart arrange", "About" })
             {
-                var item = new NavItem(p);
+                var item = new KitNavItem(p, glyphs[p]);
                 string page = p;
                 item.Click += (s, e) => ShowPage(page);
                 navs[p] = item;
@@ -612,11 +558,10 @@ namespace WinZones
                 item.BringToFront();
             }
 
-            var bottom = new Panel { Dock = DockStyle.Bottom, Height = 70, BackColor = T.Sidebar, Padding = new Padding(16, 12, 16, 18) };
-            var arrange = T.Btn("Arrange all windows", true);
-            arrange.AutoSize = false;
+            var bottom = new Panel { Dock = DockStyle.Bottom, Height = 66, BackColor = T.Sidebar, Padding = new Padding(14, 10, 14, 18) };
+            var arrange = T.Btn("Arrange all windows", true, Icons.Sparkle);
             arrange.Dock = DockStyle.Fill;
-            arrange.Font = T.F(9.75f, FontStyle.Bold);
+            arrange.Font = Theme.Ui(9.75f, FontStyle.Bold);
             arrange.Click += (s, e) => app.AutoArrange();
             bottom.Controls.Add(arrange);
 
@@ -649,8 +594,8 @@ namespace WinZones
         /// Scrollable page whose children stack top-to-bottom.
         private class Page : Panel
         {
-            public Page() { AutoScroll = true; BackColor = T.Bg; }
-            public void Add(Control c, int spaceAfter = 4)
+            public Page() { AutoScroll = true; BackColor = T.Bg; Padding = new Padding(0, 0, 8, 12); }
+            public void Add(Control c, int spaceAfter = 6)
             {
                 c.Dock = DockStyle.Top;
                 Controls.Add(c);
@@ -666,8 +611,8 @@ namespace WinZones
 
         private static Control Title(string text, string sub)
         {
-            var p = new Panel { Height = sub == null ? 44 : 66, BackColor = T.Bg };
-            var t = T.Lbl(text, 18f, true);
+            var p = new Panel { Height = sub == null ? 46 : 70, BackColor = T.Bg };
+            var t = T.Lbl(text, 17f, true);
             t.Location = new Point(0, 0);
             p.Controls.Add(t);
             if (sub != null)
@@ -681,9 +626,9 @@ namespace WinZones
 
         private static Control Section(string text)
         {
-            var p = new Panel { Height = 34, BackColor = T.Bg };
-            var l = T.Lbl(text, 10.5f, true);
-            l.Location = new Point(0, 10);
+            var p = new Panel { Height = 36, BackColor = T.Bg };
+            var l = T.Lbl(text.ToUpperInvariant(), 8.25f, true, Theme.TextMuted);
+            l.Location = new Point(4, 14);
             p.Controls.Add(l);
             return p;
         }
@@ -691,18 +636,18 @@ namespace WinZones
         /// A settings "card": title + description on the left, controls on the right.
         private static Control Card(string title, string desc, params Control[] right)
         {
-            var card = new Panel { Height = desc == null ? 52 : 66, BackColor = T.Card };
+            var card = new KitCard { Height = desc == null ? 54 : 68 };
             var t = T.Lbl(title, 10f);
-            t.Location = new Point(18, desc == null ? 16 : 13);
+            t.Location = new Point(18, desc == null ? 17 : 14);
             card.Controls.Add(t);
             if (desc != null)
             {
                 var d = T.Lbl(desc, 8.75f, false, T.Sub);
-                d.Location = new Point(18, 36);
+                d.Location = new Point(18, 38);
                 card.Controls.Add(d);
             }
             if (right.Length == 0) return card;
-            var tl = new TableLayoutPanel { Dock = DockStyle.Right, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, BackColor = T.Card, ColumnCount = right.Length, RowCount = 1, Padding = new Padding(0, 0, 16, 0) };
+            var tl = new TableLayoutPanel { Dock = DockStyle.Right, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, BackColor = Color.Transparent, ColumnCount = right.Length, RowCount = 1, Padding = new Padding(0, 0, 16, 0) };
             tl.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             for (int i = 0; i < right.Length; i++)
             {
@@ -721,29 +666,34 @@ namespace WinZones
             page.Add(Title("General", "How WinZones behaves day to day."), 8);
 
             page.Add(Section("Startup"));
-            var startup = new Toggle { Checked = app.IsStartupEnabled() };
+            var startup = new Toggle();
+            startup.SetInitial(app.IsStartupEnabled());
             startup.CheckedChanged += (s, e) => app.SetStartup(startup.Checked);
             page.Add(Card("Start with Windows", "Launch WinZones automatically when you sign in.", startup));
 
-            var notif = new Toggle { Checked = Cfg.Notifications };
+            var notif = new Toggle();
+            notif.SetInitial(Cfg.Notifications);
             notif.CheckedChanged += (s, e) => { Cfg.Notifications = notif.Checked; app.SaveConfig(); };
-            page.Add(Card("Notifications", "Show short tray messages, e.g. after auto-arranging.", notif));
+            page.Add(Card("Notifications", "Show a short toast, e.g. after auto-arranging.", notif));
 
             page.Add(Section("Snapping"));
-            var mod = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, FlatStyle = FlatStyle.Flat, BackColor = T.Control, ForeColor = T.Text, Width = 170 };
-            mod.Items.AddRange(new object[] { "Shift", "Ctrl", "Alt", "None (always)" });
+            var mod = new KitDropdown { Width = 180 };
+            mod.Items.AddRange(new[] { "Shift", "Ctrl", "Alt", "None (always)" });
             string cur = (Cfg.DragModifier ?? "Shift").ToLowerInvariant();
-            mod.SelectedIndex = cur == "ctrl" || cur == "control" ? 1 : cur == "alt" ? 2 : cur == "none" ? 3 : 0;
+            mod.SetInitial(cur == "ctrl" || cur == "control" ? 1 : cur == "alt" ? 2 : cur == "none" ? 3 : 0);
             mod.SelectedIndexChanged += (s, e) => { Cfg.DragModifier = new[] { "Shift", "Ctrl", "Alt", "None" }[mod.SelectedIndex]; app.SaveConfig(); };
             page.Add(Card("Show zones while dragging when holding", "Hold this key while dragging a window to see the zones.", mod));
 
-            var gap = new NumericUpDown { Minimum = 0, Maximum = 64, Value = Math.Max(0, Math.Min(64, Cfg.Gap)), Width = 80, BackColor = T.Control, ForeColor = T.Text, BorderStyle = BorderStyle.FixedSingle };
-            gap.ValueChanged += (s, e) => { Cfg.Gap = (int)gap.Value; app.SaveConfig(); };
-            page.Add(Card("Gap between windows", "Space in pixels between zones and around the screen edge.", gap, T.Lbl("px", 9.5f, false, T.Sub)));
+            var gap = new KitStepper { Minimum = 0, Maximum = 64, Suffix = "px" };
+            gap.SetInitial(Cfg.Gap);
+            gap.ValueChanged += (s, e) => { Cfg.Gap = gap.Value; app.SaveConfig(); };
+            page.Add(Card("Gap between windows", "Space between zones and around the screen edge.", gap));
 
             page.Add(Section("Animation"));
-            var anim = new Toggle { Checked = Cfg.Animate };
-            var speed = new TrackBar { Minimum = 80, Maximum = 500, TickStyle = TickStyle.None, Width = 200, Value = Math.Max(80, Math.Min(500, Cfg.AnimationMs)), BackColor = T.Card, SmallChange = 10, LargeChange = 40 };
+            var anim = new Toggle();
+            anim.SetInitial(Cfg.Animate);
+            var speed = new KitSlider { Minimum = 80, Maximum = 500, Width = 220 };
+            speed.Value = Math.Max(80, Math.Min(500, Cfg.AnimationMs));
             var speedLbl = T.Lbl(Cfg.AnimationMs + " ms", 9.5f, false, T.Sub);
             speedLbl.AutoSize = false;
             speedLbl.Width = 60;
@@ -755,7 +705,8 @@ namespace WinZones
             page.Add(Card("Animation duration", "Shorter feels snappier, longer feels smoother.", speed, speedLbl));
 
             page.Add(Section("Auto-arrange"));
-            var minimized = new Toggle { Checked = Cfg.IncludeMinimizedInAutoArrange };
+            var minimized = new Toggle();
+            minimized.SetInitial(Cfg.IncludeMinimizedInAutoArrange);
             minimized.CheckedChanged += (s, e) => { Cfg.IncludeMinimizedInAutoArrange = minimized.Checked; app.SaveConfig(); };
             page.Add(Card("Include minimized windows", "Restore minimized windows and arrange them too.", minimized));
 
@@ -781,14 +732,14 @@ namespace WinZones
             var monRow = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 40, BackColor = T.Bg, WrapContents = false };
             var ml = T.Lbl("Monitor", 9.75f, false, T.Sub);
             ml.Margin = new Padding(0, 6, 10, 0);
-            monitorBox = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, FlatStyle = FlatStyle.Flat, BackColor = T.Control, ForeColor = T.Text, Width = 320 };
+            monitorBox = new KitDropdown { Width = 320 };
             monitorBox.SelectedIndexChanged += (s, e) => RefreshLayouts();
             monRow.Controls.Add(ml);
             monRow.Controls.Add(monitorBox);
             top.Controls.Add(monRow);
 
             var body = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, BackColor = T.Bg };
-            body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 280));
+            body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 260));
             body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
             layoutList = new ListBox
@@ -810,12 +761,12 @@ namespace WinZones
             preview = new Canvas { Dock = DockStyle.Fill, BackColor = T.Card };
             preview.Paint += PaintPreview;
             var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 46, BackColor = T.Bg, Padding = new Padding(0, 10, 0, 0), WrapContents = false };
-            var use = T.Btn("Use this layout", true); use.Margin = new Padding(0); use.Click += (s, e) => UseSelected();
-            var create = T.Btn("New..."); create.Click += (s, e) => { var m = SelMonitor(); if (m != null) app.OpenEditor(m, null); };
-            var edit = T.Btn("Edit..."); edit.Click += (s, e) => { var l = SelLayout(); var m = SelMonitor(); if (l != null && m != null) app.OpenEditor(m, l); };
-            var dup = T.Btn("Duplicate"); dup.Click += (s, e) => DuplicateSelected();
-            var ren = T.Btn("Rename..."); ren.Click += (s, e) => RenameSelected();
-            var del = T.Btn("Delete"); del.Click += (s, e) => DeleteSelected();
+            var use = T.Btn("Use", true, Icons.Check); use.Margin = new Padding(0); use.Click += (s, e) => UseSelected();
+            var create = T.Btn("New", false, Icons.Add); create.Click += (s, e) => { var m = SelMonitor(); if (m != null) app.OpenEditor(m, null); };
+            var edit = T.Btn("Edit", false, Icons.Edit); edit.Click += (s, e) => { var l = SelLayout(); var m = SelMonitor(); if (l != null && m != null) app.OpenEditor(m, l); };
+            var dup = T.Btn("Duplicate", false, Icons.Copy); dup.Click += (s, e) => DuplicateSelected();
+            var ren = T.Btn("Rename", false, Icons.Rename); ren.Click += (s, e) => RenameSelected();
+            var del = new KitButton("Delete", ButtonStyle.Danger, Icons.Delete) { Margin = new Padding(6, 0, 0, 0) }; del.Click += (s, e) => DeleteSelected();
             buttons.Controls.AddRange(new Control[] { use, create, edit, dup, ren, del });
             right.Controls.Add(preview);
             right.Controls.Add(buttons);
@@ -851,7 +802,6 @@ namespace WinZones
             string prevMon = SelMonitor() != null ? SelMonitor().Device : null;
             string prevLayout = SelLayout() != null ? SelLayout().Name : null;
             monitors = Monitor.All();
-            monitorBox.BeginUpdate();
             monitorBox.Items.Clear();
             for (int i = 0; i < monitors.Count; i++)
             {
@@ -859,7 +809,6 @@ namespace WinZones
                 monitorBox.Items.Add("Monitor " + (i + 1) + "  -  " + m.Bounds.Width + " x " + m.Bounds.Height + (m.Primary ? "  (primary)" : ""));
             }
             int mi = Math.Max(0, monitors.FindIndex(m => m.Device == prevMon));
-            monitorBox.EndUpdate();
             if (monitors.Count > 0) monitorBox.SelectedIndex = mi;
 
             layoutList.BeginUpdate();
@@ -977,8 +926,8 @@ namespace WinZones
         {
             var l = SelLayout();
             if (l == null) return;
-            if (Cfg.Layouts.Count <= 1) { MessageBox.Show(this, "You need at least one layout.", AppInfo.Name); return; }
-            if (MessageBox.Show(this, "Delete layout '" + l.Name + "'?", AppInfo.Name, MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+            if (Cfg.Layouts.Count <= 1) { KitDialog.Info(this, "Can't delete", "You need at least one layout."); return; }
+            if (!KitDialog.Confirm(this, "Delete layout?", "'" + l.Name + "' will be removed. This cannot be undone.", "Delete", true)) return;
             Cfg.Layouts.Remove(l);
             foreach (var k in Cfg.ActiveLayouts.Where(kv => kv.Value == l.Name).Select(kv => kv.Key).ToList()) Cfg.ActiveLayouts.Remove(k);
             app.SaveConfig();
@@ -1068,7 +1017,7 @@ namespace WinZones
             var reset = T.Btn("Defaults");
             reset.Click += (s, e) =>
             {
-                if (MessageBox.Show(this, "Replace all rules with the defaults?", AppInfo.Name, MessageBoxButtons.YesNo) != DialogResult.Yes) return;
+                if (!KitDialog.Confirm(this, "Reset rules?", "Replace all app rules with the defaults.", "Reset", true)) return;
                 Cfg.Rules = new Config().Rules; app.SaveConfig(); LoadRules();
             };
             rulesBtns.Controls.AddRange(new Control[] { add, remove, up, down, reset });
@@ -1115,7 +1064,7 @@ namespace WinZones
             ignoreLbl.Dock = DockStyle.Left;
             ignoreLbl.AutoSize = true;
             ignoreLbl.Padding = new Padding(0, 6, 10, 0);
-            var ignoreBox = new TextBox { Dock = DockStyle.Fill, BackColor = T.Control, ForeColor = T.Text, BorderStyle = BorderStyle.FixedSingle, Text = string.Join(", ", Cfg.IgnoreProcesses) };
+            var ignoreBox = new KitTextBox { Dock = DockStyle.Fill, Text = string.Join(", ", Cfg.IgnoreProcesses) };
             ignoreBox.Leave += (s, e) =>
             {
                 Cfg.IgnoreProcesses = ignoreBox.Text.Split(',').Select(x => x.Trim()).Where(x => x.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
@@ -1197,7 +1146,7 @@ namespace WinZones
 
         private string SelectedOpenApp()
         {
-            if (openGrid.SelectedRows.Count == 0) { MessageBox.Show(this, "Select a window in the list first.", AppInfo.Name); return null; }
+            if (openGrid.SelectedRows.Count == 0) { KitDialog.Info(this, "No window selected", "Select a window in the list first."); return null; }
             return openGrid.SelectedRows[0].Cells[0].Value as string;
         }
 
@@ -1224,7 +1173,7 @@ namespace WinZones
             if (string.IsNullOrEmpty(proc)) return;
             if (!Cfg.IgnoreProcesses.Contains(proc, StringComparer.OrdinalIgnoreCase)) Cfg.IgnoreProcesses.Add(proc);
             app.SaveConfig(false);
-            var box = pages["Smart arrange"].Tag as TextBox;
+            var box = pages["Smart arrange"].Tag as KitTextBox;
             if (box != null) box.Text = string.Join(", ", Cfg.IgnoreProcesses);
             RefreshOpenWindows();
         }
