@@ -18,7 +18,9 @@
 
 <p align="center">
   <a href="https://github.com/Coursion-Studio/WinZones/releases/latest"><b>⬇ Download WinZones</b></a>
+  &nbsp;·&nbsp; <a href="#-install">Install</a>
   &nbsp;·&nbsp; <a href="#-features">Features</a>
+  &nbsp;·&nbsp; <a href="#-screenshots">Screenshots</a>
   &nbsp;·&nbsp; <a href="#%EF%B8%8F-shortcuts">Shortcuts</a>
   &nbsp;·&nbsp; <a href="#-how-smart-arrange-works">Smart arrange</a>
   &nbsp;·&nbsp; <a href="#-faq">FAQ</a>
@@ -30,6 +32,17 @@
   <img src="docs/demo.gif" alt="WinZones in action: Shift + drag to snap, drop on the pill to auto-arrange everything, and the tray command menu" width="100%">
   <br><sub><b>See it in action:</b> Shift + drag to snap, drop on the pill to auto-arrange every window, and right-click the tray for the command menu.</sub>
 </p>
+
+## 🚀 Install
+
+1. Download **`WinZones-x.y.z-win.zip`** from the [latest release](https://github.com/Coursion-Studio/WinZones/releases/latest).
+2. Extract it anywhere, for example `C:\Tools\WinZones`.
+3. Run **`WinZones.exe`**. Settings open on first launch, and WinZones lives in the system tray.
+4. Optional: turn on **Settings → General → Start with Windows**.
+
+> **"Windows protected your PC"?** You may see this SmartScreen warning because the exe isn't code-signed yet, which is common for new free apps. Click **More info → Run anyway**. Each release ships with a `.sha256` file if you want to verify the download.
+
+**Requirements:** Windows 10 (1903+) or Windows 11. .NET Framework 4.8 is required and is already part of Windows, so there's nothing extra to install.
 
 ## ✨ Features
 
@@ -46,38 +59,22 @@
 
 ## 📸 Screenshots
 
-<table>
-  <tr>
-    <td width="50%" align="center"><img src="docs/menu.png" alt="Tray command menu" width="80%"><br><sub><b>Right-click the tray icon:</b> a command menu with layouts, shortcuts and toggles.</sub></td>
-    <td width="50%" align="center"><img src="docs/menu-search.png" alt="Type to filter" width="80%"><br><sub><b>Just type</b> to filter, then press <kbd>Enter</kbd>.</sub><br><br><img src="docs/toast-success.png" alt="Toast" width="80%"><br><sub>Quiet toasts instead of Windows balloon tips.</sub></td>
-  </tr>
-</table>
-
-<table>
-  <tr>
-    <td width="50%"><img src="docs/overlay-auto-arrange.png" alt="Drop on the pill to auto-arrange everything"><br><sub><b>Drop on the pill</b> to auto-arrange every window.</sub></td>
-    <td width="50%"><img src="docs/overlay-span.png" alt="Ctrl to span zones"><br><sub><b>Shift + Ctrl</b> spans a window across zones.</sub></td>
-  </tr>
-  <tr>
-    <td><img src="docs/settings-layouts.png" alt="Layouts settings"><br><sub>Pick or create a layout for each monitor.</sub></td>
-    <td><img src="docs/settings-smart-arrange.png" alt="Smart arrange rules"><br><sub>Teach smart arrange about your apps.</sub></td>
-  </tr>
-  <tr>
-    <td><img src="docs/settings-shortcuts.png" alt="Shortcut editor"><br><sub>Rebind any shortcut by pressing the keys you want.</sub></td>
-    <td><img src="docs/settings-general.png" alt="General settings"><br><sub>Gap size, animation speed, start with Windows…</sub></td>
-  </tr>
-</table>
-
-## 🚀 Install
-
-1. Download **`WinZones-x.y.z-win.zip`** from the [latest release](https://github.com/Coursion-Studio/WinZones/releases/latest).
-2. Extract it anywhere, for example `C:\Tools\WinZones`.
-3. Run **`WinZones.exe`**. Settings open on first launch, and WinZones lives in the system tray.
-4. Optional: turn on **Settings → General → Start with Windows**.
-
-> **"Windows protected your PC"?** You may see this SmartScreen warning because the exe isn't code-signed yet, which is common for new free apps. Click **More info → Run anyway**. Each release ships with a `.sha256` file if you want to verify the download.
-
-**Requirements:** Windows 10 (1903+) or Windows 11. .NET Framework 4.8 is required and is already part of Windows, so there's nothing extra to install.
+<p align="center">
+  <img src="docs/shot-snap.png" width="49%" alt="Shift + drag to snap: zones fade in and the highlight follows your mouse">
+  <img src="docs/shot-drop.png" width="49%" alt="Drop on the pill to arrange every window">
+</p>
+<p align="center">
+  <img src="docs/shot-arranged.png" width="49%" alt="Smart auto-arrange result with a toast">
+  <img src="docs/shot-menu.png" width="49%" alt="Tray command menu with search, layouts and shortcuts">
+</p>
+<p align="center">
+  <img src="docs/shot-settings-general.png" width="49%" alt="General settings">
+  <img src="docs/shot-settings-layouts.png" width="49%" alt="Layouts per monitor">
+</p>
+<p align="center">
+  <img src="docs/shot-settings-shortcuts.png" width="49%" alt="Rebind any shortcut">
+  <img src="docs/shot-settings-smart.png" width="49%" alt="Smart arrange app rules">
+</p>
 
 ## ⌨️ Shortcuts
 

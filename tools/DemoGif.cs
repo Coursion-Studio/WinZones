@@ -332,23 +332,34 @@ namespace WinZones.Tools
 
         static readonly Dictionary<string, Bitmap> menuCache = new Dictionary<string, Bitmap>();
         static List<MenuEntry> entries;
+
+        /// Renders the real tray menu (filter typed, selection moved down N rows) at a scale.
+        internal static Bitmap MenuBitmap(string filter, int moveDown, float scale)
+        {
+            if (entries == null)
+            {
+                var app = (App)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(App));
+                typeof(App).GetField("cfg", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(app, new Config());
+                entries = app.BuildMenuEntries();
+                foreach (var e in entries) if (e.Kind == MenuKind.Toggle && e.Text == "Start with Windows") e.Checked = true;
+            }
+            using (var menu = new KitMenu(entries) { FooterText = AppInfo.Name, FooterIcon = IconArt.Draw(32), Placeholder = "Search layouts and commands..." })
+            {
+                menu.PreviewState(filter, moveDown);
+                return menu.RenderPreview(scale);
+            }
+        }
+
+        /// Stills hide the GIF's step captions (the cards have their own headline).
+        internal static bool HideCaptions;
+
         static void PaintMenu(Graphics g, Frame f)
         {
             string key = f.Filter ?? "";
             Bitmap b;
             if (!menuCache.TryGetValue(key, out b))
             {
-                if (entries == null)
-                {
-                    var app = (App)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(App));
-                    typeof(App).GetField("cfg", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(app, new Config());
-                    entries = app.BuildMenuEntries();
-                    foreach (var e in entries) if (e.Kind == MenuKind.Toggle && e.Text == "Start with Windows") e.Checked = true;
-                }
-                var menu = new KitMenu(entries) { FooterText = AppInfo.Name, FooterIcon = IconArt.Draw(32), Placeholder = "Search layouts and commands..." };
-                menu.PreviewState(key, 0);
-                b = menu.RenderPreview(Sc);
-                menu.Dispose();
+                b = MenuBitmap(key, 0, Sc);
                 menuCache[key] = b;
             }
             float gutter = 26 * Sc;
@@ -366,7 +377,7 @@ namespace WinZones.Tools
 
         static void PaintCaption(Graphics g, Frame f)
         {
-            if (f.Caption == 0 || f.CaptionA <= 0.01f) return;
+            if (HideCaptions || f.Caption == 0 || f.CaptionA <= 0.01f) return;
             int a = (int)(255 * f.CaptionA);
             var font = Theme.SemiboldPx(15f);
             string text = Captions[f.Caption];
@@ -590,6 +601,9 @@ namespace WinZones.Tools
             trayIcon = IconArt.Draw(40);
             int frames = (int)Math.Round(Duration * FPS);
 
+            // README screenshot cards: WinZones_demo.exe --stills <docs dir>
+            if (args.Length == 2 && args[0] == "--stills") return Showcase.Run(args[1]);
+
             // debug: WinZones_demo.exe --frame <seconds> <out.png>  (renders one frame without GIF encoding)
             if (args.Length == 3 && args[0] == "--frame")
             {
@@ -619,6 +633,21 @@ namespace WinZones.Tools
             }
             Console.WriteLine("wrote " + outPath + " (" + new FileInfo(outPath).Length / 1024 + " KB)");
             return 0;
+        }
+
+        /// Renders the storyboard once and returns full-resolution frames at the given times (seconds, ascending).
+        internal static List<Bitmap> FramesAt(params double[] times)
+        {
+            var result = new List<Bitmap>();
+            ResetStory();
+            int next = 0;
+            for (int i = 0; next < times.Length; i++)
+            {
+                var b = Render(i * Dt);
+                if (i * Dt + 1e-9 >= times[next]) { result.Add(b); next++; }
+                else b.Dispose();
+            }
+            return result;
         }
 
         static void ResetStory()

@@ -458,7 +458,9 @@ namespace WinKit
         public Bitmap RenderPreview(float scale)
         {
             sc = scale;
+            int keep = sel;   // keep a selection made with PreviewState
             ApplyFilter();
+            if (keep >= 0 && keep < view.Count && view[keep].Selectable) sel = keep;
             using (var g0 = Graphics.FromHwnd(IntPtr.Zero)) Measure(g0);
             float W = width * sc, M = Gutter * sc;
             float headH = ShowSearch ? 48 * sc : 6 * sc, footH = FooterText != null ? 38 * sc : 6 * sc;
