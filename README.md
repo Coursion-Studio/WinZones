@@ -27,8 +27,13 @@
 ---
 
 <p align="center">
+  <img src="docs/demo.gif" alt="WinZones in action: Shift + drag to snap, drop on the pill to auto-arrange everything, and the tray command menu" width="100%">
+  <br><sub><b>See it in action:</b> Shift + drag to snap, drop on the pill to auto-arrange every window, and right-click the tray for the command menu.</sub>
+</p>
+
+<p align="center">
   <img src="docs/overlay-snap-detail.png" alt="Shift + drag: the glass zone overlay with a live preview of the window you are dragging" width="90%">
-  <br><sub>Shift + drag a window: zones fade in, the highlight follows your mouse and shows which window lands where.</sub>
+  <br><sub>Up close: zones fade in, the highlight follows your mouse and shows which window lands where.</sub>
 </p>
 
 ## ✨ Features
@@ -166,6 +171,7 @@ git clone https://github.com/Coursion-Studio/WinZones.git
 cd WinZones
 build.bat          :: -> WinZones.exe
 release.bat        :: -> dist\WinZones-<version>-win.zip (+ .sha256)
+tools\make-demo.bat :: -> docs\demo.gif (README animation, rendered from the app's own drawing code)
 ```
 
 | File | What's inside |
@@ -174,6 +180,7 @@ release.bat        :: -> dist\WinZones-<version>-win.zip (+ .sha256)
 | `Overlay.cs` | Glass zone overlay: cached layered windows, gliding highlight, window preview |
 | `Ui.cs` | Settings window, icon artwork, app info / version |
 | `kit/` | **WinKit**, the reusable UI kit (see below) |
+| `tools/` | README demo generator: animates a mock desktop with the real overlay, smart-arrange and menu code, and writes the GIF |
 | `app.manifest` | Per-monitor DPI awareness, Windows 10/11 |
 
 ### 🎨 WinKit: reuse the look in your own apps
