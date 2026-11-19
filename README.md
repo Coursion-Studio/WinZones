@@ -31,11 +31,6 @@
   <br><sub><b>See it in action:</b> Shift + drag to snap, drop on the pill to auto-arrange every window, and right-click the tray for the command menu.</sub>
 </p>
 
-<p align="center">
-  <img src="docs/overlay-snap-detail.png" alt="Shift + drag: the glass zone overlay with a live preview of the window you are dragging" width="90%">
-  <br><sub>Up close: zones fade in, the highlight follows your mouse and shows which window lands where.</sub>
-</p>
-
 ## ✨ Features
 
 |   |   |
