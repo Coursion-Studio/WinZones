@@ -226,12 +226,15 @@ cd WinZones
 build.bat           :: -> WinZones.exe
 tests\run-tests.bat :: unit tests
 build-setup.bat     :: -> WinZonesSetup.exe (per-user installer with WinZones.exe inside)
-release.bat         :: all of the above, then dist\: zip, installer, .sha256 files, and the Scoop manifest
+release.bat         :: all of the above + signing, then dist\: zip, installer, .sha256 files, and the Scoop manifest
+tools\publish.ps1   :: publishes dist\ as a GitHub release (-DryRun to preview)
 tools\make-demo.bat :: -> docs\demo.gif + docs\shot-*.png (README media, rendered from the app's own drawing code)
 store.bat           :: -> dist\store\WinZones-<version>.0.msix (Microsoft Store package; needs the Windows SDK)
 ```
 
-> **Releasing:** bump `AppInfo.Version` in `Ui.cs`, add a `## X.Y.Z` section to `CHANGELOG.md`, then push a `vX.Y.Z` tag. The **Release** workflow builds and tests on a clean machine, signs the files when signing is set up, publishes the release with notes from the changelog, and updates the Scoop manifest. The in-app updater looks for `WinZones-X.Y.Z-win.zip` + `.sha256`, so keep those names; it skips drafts and pre-releases.
+> **Releasing:** bump `AppInfo.Version` in `Ui.cs`, add a `## X.Y.Z` section to `CHANGELOG.md` and commit. Run `release.bat` (build, tests, signing, packing), check with `powershell -File tools\publish.ps1 -DryRun`, then run it without `-DryRun`. It refuses unsigned files unless you pass `-AllowUnsigned`, creates the `vX.Y.Z` release with notes from the changelog, and commits the Scoop manifest. The in-app updater looks for `WinZones-X.Y.Z-win.zip` + `.sha256`, so keep those names; it skips drafts and pre-releases.
+>
+> **Signing:** releases are signed on the maintainer's PC with the Coursion code-signing certificate (a cloud certificate in the Windows certificate store, confirmed on the phone). Set `CODESIGN_THUMBPRINT` to the certificate's thumbprint (and optionally `CODESIGN_TIMESTAMP`, default `http://time.certum.pl`). `tools\sign.ps1` uses `signtool` from the Windows SDK. Without the variable, builds simply stay unsigned, so contributors need nothing extra.
 
 | File | What's inside |
 |---|---|
@@ -245,7 +248,7 @@ store.bat           :: -> dist\store\WinZones-<version>.0.msix (Microsoft Store 
 | `setup/` | The installer: per-user install, update and uninstall, silent mode (`/S`) for scripts |
 | `tests/` | Unit tests (plain C#, no framework) |
 | `store/` | Microsoft Store packaging: manifest template, package identity, Store startup task, listing texts |
-| `.github/workflows/` | CI on every push, and the tag-triggered release pipeline |
+| `.github/workflows/` | CI: build, tests and installer on every push and pull request |
 | `app.manifest` | Per-monitor DPI awareness, Windows 10/11 |
 
 ### 🎨 WinKit: reuse the look in your own apps
