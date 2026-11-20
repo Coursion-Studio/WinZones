@@ -34,7 +34,11 @@ if ($unsigned) {
 $section = Select-String -Path CHANGELOG.md -Pattern "^## $([regex]::Escape($v))" | Select-Object -First 1
 if (-not $section) { throw "CHANGELOG.md has no '## $v' section." }
 if (git tag --list $tag) { throw "Tag $tag already exists." }
-if (gh release view $tag -R $repo 2>$null) { throw "Release $tag already exists on GitHub." }
+$ErrorActionPreference = 'Continue'   # gh writes "release not found" to stderr; only its exit code matters
+gh release view $tag -R $repo *> $null
+$exists = $LASTEXITCODE -eq 0
+$ErrorActionPreference = 'Stop'
+if ($exists) { throw "Release $tag already exists on GitHub." }
 $dirty = git status --porcelain | Where-Object { $_ -notmatch 'packaging/scoop/winzones.json' }
 if ($dirty) { throw "Commit or stash your changes first:`n$($dirty -join "`n")" }
 if ((git rev-parse --abbrev-ref HEAD) -ne 'main') { throw "Publish from the main branch." }
