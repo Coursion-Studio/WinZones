@@ -32,6 +32,7 @@ using Microsoft.Win32;
 [assembly: System.Reflection.AssemblyVersion(WinZones.AppInfo.Version + ".0")]
 [assembly: System.Reflection.AssemblyFileVersion(WinZones.AppInfo.Version + ".0")]
 [assembly: System.Reflection.AssemblyInformationalVersion(WinZones.AppInfo.Version)]
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("WinZones.Tests")]
 
 namespace WinZones
 {
@@ -124,6 +125,8 @@ namespace WinZones
         public const uint SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOZORDER = 0x4, SWP_NOACTIVATE = 0x10, SWP_SHOWWINDOW = 0x40, SWP_NOOWNERZORDER = 0x200, SWP_ASYNCWINDOWPOS = 0x4000;
         public const int SW_RESTORE = 9, SW_SHOWNOACTIVATE = 4, SW_SHOWMAXIMIZED = 3, SW_SHOWMINIMIZED = 2;
         public const uint EVENT_SYSTEM_MOVESIZESTART = 0x000A, EVENT_SYSTEM_MOVESIZEEND = 0x000B;
+        public const uint EVENT_SYSTEM_FOREGROUND = 0x0003, EVENT_OBJECT_SHOW = 0x8002;
+        public const int WS_CHILD = 0x40000000, SW_MINIMIZE = 6, SW_SHOWMINNOACTIVE = 7;
         public const uint WINEVENT_OUTOFCONTEXT = 0x0, WINEVENT_SKIPOWNPROCESS = 0x2;
         public const uint MOD_ALT = 0x1, MOD_CONTROL = 0x2, MOD_SHIFT = 0x4, MOD_WIN = 0x8, MOD_NOREPEAT = 0x4000;
         public const int WM_HOTKEY = 0x0312;
@@ -222,9 +225,19 @@ namespace WinZones
         public List<Layout> Layouts { get; set; }
         public List<Rule> Rules { get; set; }
         public List<string> IgnoreProcesses { get; set; }
+        public bool GameMode { get; set; }               // pause while a game / full-screen app is in front
+        public bool GameModeAnyFullscreen { get; set; }  // any full-screen app counts, not only GameApps
+        public List<string> GameApps { get; set; }       // always pause while these apps are in front
+        public List<AppRule> AppRules { get; set; }
+        public List<Workspace> Workspaces { get; set; }
 
         public Config()
         {
+            GameMode = true;
+            GameModeAnyFullscreen = true;
+            GameApps = new List<string>();
+            AppRules = new List<AppRule>();
+            Workspaces = new List<Workspace>();
             Gap = 8;
             DragModifier = "Shift";
             Notifications = true;
@@ -247,6 +260,9 @@ namespace WinZones
             Hotkeys["NextMonitor"] = "Win+Ctrl+Alt+M";
             Hotkeys["Fill"] = "Win+Alt+F";
             Hotkeys["Center"] = "Win+Alt+C";
+            Hotkeys["TogglePause"] = "Win+Alt+P";
+            Hotkeys["ApplyRules"] = "";
+            Hotkeys["SaveWorkspace"] = "";
 
             double t = 100.0 / 3;
             Layouts = new List<Layout>
@@ -337,6 +353,16 @@ namespace WinZones
                 if (c.ActiveLayouts == null) c.ActiveLayouts = new Dictionary<string, string>();
                 if (c.Rules == null) c.Rules = new List<Rule>();
                 if (c.IgnoreProcesses == null) c.IgnoreProcesses = new List<string>();
+                if (c.GameApps == null) c.GameApps = new List<string>();
+                if (c.AppRules == null) c.AppRules = new List<AppRule>();
+                if (c.Workspaces == null) c.Workspaces = new List<Workspace>();
+                c.AppRules.RemoveAll(r => r == null);
+                c.Workspaces.RemoveAll(w => w == null);
+                foreach (var w in c.Workspaces) if (w.Windows == null) w.Windows = new List<WorkspaceWindow>();
+                // shortcuts added in newer versions: add their defaults unless the combination is already used
+                foreach (var kv in new Config().Hotkeys)
+                    if (!c.Hotkeys.ContainsKey(kv.Key))
+                        c.Hotkeys[kv.Key] = c.Hotkeys.Values.Any(v => string.Equals(v, kv.Value, StringComparison.OrdinalIgnoreCase)) ? "" : kv.Value;
                 foreach (var l in c.Layouts) if (l.Zones == null) l.Zones = new List<Zone>();
                 foreach (var r in c.Rules)
                 {
@@ -544,7 +570,10 @@ namespace WinZones
             return true;
         }
 
-        public static List<Win> EnumerateForArrange(Config cfg)
+        public static List<Win> EnumerateForArrange(Config cfg) { return Enumerate(cfg, cfg.IncludeMinimizedInAutoArrange); }
+
+        /// Real app windows in z-order (skips ignored apps).
+        public static List<Win> Enumerate(Config cfg, bool includeMinimized)
         {
             var list = new List<Win>();
             var ignore = new HashSet<string>(cfg.IgnoreProcesses, StringComparer.OrdinalIgnoreCase);
@@ -552,7 +581,7 @@ namespace WinZones
             N.EnumWindows((h, l) =>
             {
                 if (!IsManageable(h, true)) return true;
-                if (N.IsIconic(h) && !cfg.IncludeMinimizedInAutoArrange) return true;
+                if (N.IsIconic(h) && !includeMinimized) return true;
                 var w = new Win();
                 w.Handle = h;
                 w.Title = GetTitle(h);
@@ -1125,6 +1154,62 @@ namespace WinZones
     }
 
     // =====================================================================================
+    //  Command window: lets "WinZones.exe --workspace Coding" etc. talk to the running app
+    // =====================================================================================
+    internal class CommandWindow : NativeWindow, IDisposable
+    {
+        public const string Title = "WinZones.Commands";
+        private const int WM_COPYDATA = 0x004A;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct COPYDATASTRUCT { public IntPtr dwData; public int cbData; public IntPtr lpData; }
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string cls, string title);
+        [DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr h, int msg, IntPtr w, ref COPYDATASTRUCT l);
+
+        public event Action<string> Received;
+
+        public CommandWindow()
+        {
+            CreateHandle(new CreateParams { Caption = Title, Parent = new IntPtr(-3) /*HWND_MESSAGE*/ });
+        }
+
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == WM_COPYDATA)
+            {
+                try
+                {
+                    var cd = (COPYDATASTRUCT)Marshal.PtrToStructure(m.LParam, typeof(COPYDATASTRUCT));
+                    string cmd = Marshal.PtrToStringUni(cd.lpData, cd.cbData / 2);
+                    if (Received != null) Received(cmd);
+                    m.Result = new IntPtr(1);
+                }
+                catch { }
+                return;
+            }
+            base.WndProc(ref m);
+        }
+
+        /// Sends a command to the running WinZones. False if it isn't running.
+        public static bool Send(string cmd)
+        {
+            IntPtr h = FindWindowEx(new IntPtr(-3), IntPtr.Zero, null, Title);
+            if (h == IntPtr.Zero) return false;
+            IntPtr mem = Marshal.StringToHGlobalUni(cmd);
+            try
+            {
+                var cd = new COPYDATASTRUCT { dwData = new IntPtr(1), cbData = (cmd.Length + 1) * 2, lpData = mem };
+                SendMessage(h, WM_COPYDATA, IntPtr.Zero, ref cd);
+                return true;
+            }
+            finally { Marshal.FreeHGlobal(mem); }
+        }
+
+        public void Dispose() { DestroyHandle(); }
+    }
+
+    // =====================================================================================
     //  Application
     // =====================================================================================
     internal class App : ApplicationContext
@@ -1183,6 +1268,7 @@ namespace WinZones
             winEventProc = OnWinEvent;
             winEventHook = N.SetWinEventHook(N.EVENT_SYSTEM_MOVESIZESTART, N.EVENT_SYSTEM_MOVESIZEEND, IntPtr.Zero,
                 winEventProc, 0, 0, N.WINEVENT_OUTOFCONTEXT | N.WINEVENT_SKIPOWNPROCESS);
+            StartFeatures();
 
             // updates: first check shortly after start, then every 6 hours
             updateTimer.Tick += (s, e) => { updateTimer.Interval = 6 * 60 * 60 * 1000; CheckForUpdates(false, null); };
@@ -1208,7 +1294,7 @@ namespace WinZones
         public void SetUpdateChecks(bool on)
         {
             updateTimer.Stop();
-            if (!on || AppInfo.IsStoreBuild) return;   // Store builds are updated by the Microsoft Store
+            if (!on || AppInfo.ManagedBy != null) return;   // the Store / Scoop update those copies
             updateTimer.Interval = 15 * 1000;
             updateTimer.Start();
         }
@@ -1216,7 +1302,7 @@ namespace WinZones
         /// Checks GitHub for a newer release. `done` (UI thread) gets the update or null, and an error message or null.
         public void CheckForUpdates(bool manual, Action<UpdateInfo, string> done)
         {
-            if (AppInfo.IsStoreBuild) { if (done != null) done(null, null); return; }
+            if (AppInfo.ManagedBy != null) { if (done != null) done(null, null); return; }
             if (updateBusy) { if (done != null) done(PendingUpdate, null); return; }
             updateBusy = true;
             var ui = SynchronizationContext.Current;
@@ -1361,6 +1447,7 @@ namespace WinZones
             foreach (var kv in cfg.Hotkeys)
             {
                 if (string.IsNullOrWhiteSpace(kv.Value)) continue;
+                if (IsPaused && kv.Key != "TogglePause") continue;   // paused: leave every other key to the game / app
                 uint mods, vk;
                 if (!ParseHotkey(kv.Value, out mods, out vk)) { failed.Add(kv.Key); continue; }
                 int id = next++;
@@ -1406,8 +1493,17 @@ namespace WinZones
 
         private void RunAction(string action)
         {
+            if (action.StartsWith(WorkspaceHotkeyPrefix))
+            {
+                var ws = cfg.Workspaces.FirstOrDefault(w => w.Name == action.Substring(WorkspaceHotkeyPrefix.Length));
+                if (ws != null) RestoreWorkspace(ws, false);
+                return;
+            }
             switch (action)
             {
+                case "TogglePause": SetPaused(!manualPause); return;
+                case "ApplyRules": ApplyRulesToOpenWindows(false); return;
+                case "SaveWorkspace": PromptSaveWorkspace(); return;
                 case "AutoArrange": AutoArrange(); return;
                 case "Undo": Undo(); return;
                 case "EditLayout": { var m = CurrentMonitor(); OpenEditor(m, LayoutFor(m)); return; }
@@ -1580,12 +1676,403 @@ namespace WinZones
             });
         }
 
+        // ----------------------------------------------------------------- pause & game mode
+        public const string WorkspaceHotkeyPrefix = "Workspace:";
+        private bool manualPause;
+        private string gameReason;   // app that turned game mode on, or null
+        private N.WinEventProc fgProc, showProc;
+        private IntPtr fgHook, showHook;
+        private readonly System.Windows.Forms.Timer gameTimer = new System.Windows.Forms.Timer();
+        private readonly System.Windows.Forms.Timer shownTimer = new System.Windows.Forms.Timer();
+        private readonly System.Windows.Forms.Timer displayTimer = new System.Windows.Forms.Timer();
+        private readonly Control invoker = new Control();
+        private string displaySetup;
+        private Icon trayNormal, trayPaused;
+
+        /// True while WinZones stays out of the way: paused by hand, or a game is in front.
+        public bool IsPaused { get { return manualPause || gameReason != null; } }
+        public bool ManualPause { get { return manualPause; } }
+        public string GameReason { get { return gameReason; } }
+        public event Action PauseChanged;
+
+        private CommandWindow commands;
+
+        /// Commands from the command line (see Program.CliCommand), e.g. "workspace:Coding".
+        public void RunCommand(string cmd)
+        {
+            cmd = (cmd ?? "").TrimEnd('\0').Trim();
+            int c = cmd.IndexOf(':');
+            string verb = (c < 0 ? cmd : cmd.Substring(0, c)).ToLowerInvariant(), arg = c < 0 ? "" : cmd.Substring(c + 1).Trim();
+            switch (verb)
+            {
+                case "workspace":
+                    {
+                        var ws = cfg.Workspaces.FirstOrDefault(w => string.Equals(w.Name, arg, StringComparison.OrdinalIgnoreCase));
+                        if (ws != null) RestoreWorkspace(ws, false);
+                        else Notify("There's no workspace called '" + arg + "'.");
+                        break;
+                    }
+                case "save-workspace": if (arg.Length > 0) SaveWorkspace(arg); else PromptSaveWorkspace(); break;
+                case "arrange": AutoArrange(); break;
+                case "apply-rules": ApplyRulesToOpenWindows(false); break;
+                case "pause": SetPaused(true); break;
+                case "resume": SetPaused(false); break;
+                case "toggle-pause": SetPaused(!manualPause); break;
+                case "settings": ShowSettings(arg.Length > 0 ? arg : null); break;
+            }
+        }
+
+        public void RunCommandLater(string cmd, int ms)
+        {
+            var t = new System.Windows.Forms.Timer { Interval = ms };
+            t.Tick += (s, e) => { t.Stop(); t.Dispose(); try { RunCommand(cmd); } catch (Exception ex) { Notify("Error: " + ex.Message); } };
+            t.Start();
+        }
+
+        private void StartFeatures()
+        {
+            invoker.CreateControl();
+            commands = new CommandWindow();
+            commands.Received += cmd => { try { RunCommand(cmd); } catch (Exception ex) { Notify("Error: " + ex.Message); } };
+            fgProc = (hook, evt, h, idObject, idChild, thread, time) => CheckGameMode();
+            fgHook = N.SetWinEventHook(N.EVENT_SYSTEM_FOREGROUND, N.EVENT_SYSTEM_FOREGROUND, IntPtr.Zero, fgProc, 0, 0, N.WINEVENT_OUTOFCONTEXT);
+            showProc = OnObjectShow;
+            showHook = N.SetWinEventHook(N.EVENT_OBJECT_SHOW, N.EVENT_OBJECT_SHOW, IntPtr.Zero, showProc, 0, 0, N.WINEVENT_OUTOFCONTEXT | N.WINEVENT_SKIPOWNPROCESS);
+            gameTimer.Interval = 2000;   // games often switch to full screen a moment after they get focus
+            gameTimer.Tick += (s, e) => CheckGameMode();
+            gameTimer.Start();
+            shownTimer.Interval = 150;
+            shownTimer.Tick += (s, e) => ProcessShownWindows();
+            displaySetup = Workspaces.MonitorSetup(Monitor.All());
+            displayTimer.Interval = 2500;   // let Windows finish moving windows around first
+            displayTimer.Tick += (s, e) => { displayTimer.Stop(); OnDisplaySettled(); };
+            SystemEvents.DisplaySettingsChanged += OnDisplayChanged;
+            CheckGameMode();
+        }
+
+        private void StopFeatures()
+        {
+            SystemEvents.DisplaySettingsChanged -= OnDisplayChanged;
+            gameTimer.Stop();
+            shownTimer.Stop();
+            displayTimer.Stop();
+            if (fgHook != IntPtr.Zero) N.UnhookWinEvent(fgHook);
+            if (showHook != IntPtr.Zero) N.UnhookWinEvent(showHook);
+            if (commands != null) commands.Dispose();
+            invoker.Dispose();
+        }
+
+        public void CheckGameMode()
+        {
+            string reason = null;
+            try { reason = GameDetector.Check(cfg); } catch { }
+            if (reason == gameReason) return;
+            gameReason = reason;
+            OnPauseStateChanged();
+        }
+
+        public void SetPaused(bool on)
+        {
+            if (manualPause == on) return;
+            manualPause = on;
+            OnPauseStateChanged();
+            Notify(on ? "WinZones is paused. Shortcuts and zones are off until you resume it (" + (Hotkey("TogglePause") ?? "tray menu") + ")."
+                      : "WinZones is back on.");
+        }
+
+        private void OnPauseStateChanged()
+        {
+            if (IsPaused && overlayActive) { overlay.FadeOut(); overlayActive = false; }
+            if (IsPaused) { dragTimer.Stop(); dragHwnd = IntPtr.Zero; }
+            RegisterHotkeys(false);
+            UpdateTrayIcon();
+            if (!IsPaused) FlushDeferred();
+            if (PauseChanged != null) PauseChanged();
+        }
+
+        private void UpdateTrayIcon()
+        {
+            if (trayNormal == null) trayNormal = tray.Icon;
+            if (IsPaused && trayPaused == null) trayPaused = MakePausedIcon(trayNormal.Width);
+            tray.Icon = IsPaused ? trayPaused : trayNormal;
+            string t = !IsPaused ? AppInfo.Name : AppInfo.Name + (manualPause ? " - paused" : " - paused while " + gameReason + " is in front");
+            tray.Text = t.Length > 63 ? t.Substring(0, 63) : t;
+        }
+
+        /// The tray icon, greyed out.
+        private static Icon MakePausedIcon(int size)
+        {
+            using (var src = IconArt.Draw(size))
+            using (var bmp = new Bitmap(size, size, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+            {
+                using (var g = Graphics.FromImage(bmp))
+                using (var ia = new System.Drawing.Imaging.ImageAttributes())
+                {
+                    float l = 0.33f;
+                    ia.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix(new[]
+                    {
+                        new[] { l, l, l, 0f, 0f }, new[] { l, l, l, 0f, 0f }, new[] { l, l, l, 0f, 0f },
+                        new[] { 0f, 0f, 0f, 0.6f, 0f }, new[] { 0f, 0f, 0f, 0f, 1f }
+                    }));
+                    g.DrawImage(src, new Rectangle(0, 0, size, size), 0, 0, size, size, GraphicsUnit.Pixel, ia);
+                }
+                IntPtr h = bmp.GetHicon();
+                var icon = (Icon)Icon.FromHandle(h).Clone();
+                N.DestroyIcon(h);
+                return icon;
+            }
+        }
+
+        // ----------------------------------------------------------------- app rules
+        private class ShownWindow { public IntPtr Handle; public DateTime Due; public int Tries; }
+        private class PendingLaunch { public WorkspaceWindow Saved; public DateTime Until; }
+
+        private readonly HashSet<IntPtr> placedWindows = new HashSet<IntPtr>();
+        private readonly List<ShownWindow> shownQueue = new List<ShownWindow>();
+        private readonly List<KeyValuePair<IntPtr, AppRule>> deferredRules = new List<KeyValuePair<IntPtr, AppRule>>();
+        private readonly List<PendingLaunch> launches = new List<PendingLaunch>();
+        private Workspace deferredWorkspace;
+
+        private void OnObjectShow(IntPtr hook, uint evt, IntPtr h, int idObject, int idChild, uint thread, uint time)
+        {
+            if (idObject != 0 || idChild != 0 || h == IntPtr.Zero) return;
+            if (launches.Count == 0 && !cfg.AppRules.Any(r => r.Enabled)) return;
+            if ((N.GetWindowLong(h, N.GWL_STYLE) & N.WS_CHILD) != 0) return;
+            if (placedWindows.Contains(h) || shownQueue.Any(p => p.Handle == h)) return;
+            // apps often move their new window themselves right after showing it: wait a moment
+            shownQueue.Add(new ShownWindow { Handle = h, Due = DateTime.UtcNow.AddMilliseconds(350), Tries = 8 });
+            shownTimer.Start();
+        }
+
+        private void ProcessShownWindows()
+        {
+            var now = DateTime.UtcNow;
+            launches.RemoveAll(l => l.Until < now);
+            foreach (var p in shownQueue.Where(x => x.Due <= now).ToList())
+            {
+                if (!N.IsWindow(p.Handle)) { shownQueue.Remove(p); continue; }
+                if (!Win.IsManageable(p.Handle, true))
+                {
+                    // may still be setting up (no title yet, or cloaked): look again shortly
+                    if (--p.Tries <= 0) shownQueue.Remove(p); else p.Due = now.AddMilliseconds(250);
+                    continue;
+                }
+                shownQueue.Remove(p);
+                try { PlaceNewWindow(p.Handle); } catch { }
+            }
+            if (shownQueue.Count == 0) shownTimer.Stop();
+            if (placedWindows.Count > 400) placedWindows.RemoveWhere(x => !N.IsWindow(x));
+        }
+
+        private void PlaceNewWindow(IntPtr h)
+        {
+            placedWindows.Add(h);
+            string proc = Win.GetProcessName(h), title = Win.GetTitle(h);
+            if (cfg.IgnoreProcesses.Contains(proc, StringComparer.OrdinalIgnoreCase)) return;
+
+            // an app that a workspace just opened goes where the workspace had it
+            var launch = launches.FirstOrDefault(l => string.Equals(l.Saved.Process, proc, StringComparison.OrdinalIgnoreCase));
+            if (launch != null)
+            {
+                launches.Remove(launch);
+                PlaceSaved(h, launch.Saved, Monitor.All());
+                return;
+            }
+
+            var rule = AppRules.Find(cfg, proc, title);
+            if (rule == null) return;
+            if (IsPaused) { deferredRules.Add(new KeyValuePair<IntPtr, AppRule>(h, rule)); return; }
+            ApplyRule(h, rule, true);
+        }
+
+        private void ApplyRule(IntPtr h, AppRule rule, bool animate)
+        {
+            if (!N.IsWindow(h)) return;
+            var mon = AppRules.TargetMonitor(rule, h, Monitor.All());
+            if (mon == null) return;
+            var rect = AppRules.TargetRect(rule.Place, mon, LayoutFor(mon), cfg.Gap);
+            if (rect == null) { MaximizeOn(h, mon); return; }
+            Animator.Run(new List<KeyValuePair<IntPtr, Rectangle>> { new KeyValuePair<IntPtr, Rectangle>(h, rect.Value) }, animate ? AnimMs : 0, null);
+        }
+
+        private static void MaximizeOn(IntPtr h, Monitor mon)
+        {
+            var cur = Monitor.OfWindow(h);
+            if (cur == null || cur.Handle != mon.Handle)
+            {
+                if (N.IsZoomed(h) || N.IsIconic(h)) N.ShowWindow(h, N.SW_RESTORE);
+                var fr = Win.FrameRect(h);
+                int w = Math.Min(fr.Width, mon.Work.Width), hh = Math.Min(fr.Height, mon.Work.Height);
+                Win.Move(h, new Rectangle(mon.Work.X + (mon.Work.Width - w) / 2, mon.Work.Y + (mon.Work.Height - hh) / 2, w, hh));
+            }
+            N.ShowWindow(h, N.SW_SHOWMAXIMIZED);
+        }
+
+        /// Puts every open window that has an app rule in its place. Returns how many matched.
+        public int ApplyRulesToOpenWindows(bool quiet)
+        {
+            var mons = Monitor.All();
+            var moves = new List<KeyValuePair<IntPtr, Rectangle>>();
+            var maxes = new List<KeyValuePair<IntPtr, Monitor>>();
+            foreach (var w in Win.Enumerate(cfg, false))
+            {
+                var rule = AppRules.Find(cfg, w.Process, w.Title);
+                if (rule == null) continue;
+                var mon = AppRules.TargetMonitor(rule, w.Handle, mons);
+                if (mon == null) continue;
+                var r = AppRules.TargetRect(rule.Place, mon, LayoutFor(mon), cfg.Gap);
+                if (r == null) maxes.Add(new KeyValuePair<IntPtr, Monitor>(w.Handle, mon));
+                else moves.Add(new KeyValuePair<IntPtr, Rectangle>(w.Handle, r.Value));
+            }
+            int n = moves.Count + maxes.Count;
+            if (n == 0) { if (!quiet) Notify("No open windows match your app rules."); return 0; }
+            PushUndo(moves.Select(m => m.Key).Concat(maxes.Select(m => m.Key)));
+            foreach (var m in maxes) MaximizeOn(m.Key, m.Value);
+            Animator.Run(moves, AnimMs, fails => { if (!quiet) Notify("Placed " + (n - fails) + " window(s) by your app rules."); });
+            return n;
+        }
+
+        // ----------------------------------------------------------------- workspaces
+        public Workspace SaveWorkspace(string name)
+        {
+            var ws = Workspaces.Capture(name, cfg);
+            int i = cfg.Workspaces.FindIndex(w => string.Equals(w.Name, name, StringComparison.OrdinalIgnoreCase));
+            if (i >= 0)
+            {
+                var old = cfg.Workspaces[i];
+                ws.Name = old.Name;
+                ws.AutoRestore = old.AutoRestore;
+                ws.LaunchMissing = old.LaunchMissing;
+                cfg.Workspaces[i] = ws;
+            }
+            else cfg.Workspaces.Add(ws);
+            SaveConfig();
+            Notify("Workspace '" + ws.Name + "' saved with " + ws.Windows.Count + " window(s).");
+            return ws;
+        }
+
+        public void PromptSaveWorkspace()
+        {
+            string name = Dialogs.Prompt(null, "Save workspace", "Saves where every open window is. Use an existing name to update it.", "Workspace " + (cfg.Workspaces.Count + 1));
+            if (!string.IsNullOrWhiteSpace(name)) SaveWorkspace(name.Trim());
+        }
+
+        public void RenameWorkspace(Workspace ws, string name)
+        {
+            string oldKey = WorkspaceHotkeyPrefix + ws.Name, hotkey;
+            if (cfg.Hotkeys.TryGetValue(oldKey, out hotkey)) { cfg.Hotkeys.Remove(oldKey); cfg.Hotkeys[WorkspaceHotkeyPrefix + name] = hotkey; }
+            ws.Name = name;
+            SaveConfig();
+            RegisterHotkeys(false);
+        }
+
+        public void DeleteWorkspace(Workspace ws)
+        {
+            cfg.Workspaces.Remove(ws);
+            cfg.Hotkeys.Remove(WorkspaceHotkeyPrefix + ws.Name);
+            SaveConfig();
+            RegisterHotkeys(false);
+        }
+
+        /// Moves every saved window back where it was (and opens missing apps if the workspace says so).
+        public void RestoreWorkspace(Workspace ws, bool automatic)
+        {
+            if (IsPaused && automatic) { deferredWorkspace = ws; return; }
+            var mons = Monitor.All();
+            var open = Win.Enumerate(cfg, true);
+            var pairs = Workspaces.Match(ws.Windows, open);
+            var moves = new List<KeyValuePair<IntPtr, Rectangle>>();
+            var states = new List<KeyValuePair<IntPtr, string>>();
+            PushUndo(pairs.Select(p => open[p.Value].Handle));
+            foreach (var p in pairs)
+            {
+                var s = ws.Windows[p.Key];
+                IntPtr h = open[p.Value].Handle;
+                moves.Add(new KeyValuePair<IntPtr, Rectangle>(h, Workspaces.TargetRect(s, mons)));
+                if (s.State != "Normal") states.Add(new KeyValuePair<IntPtr, string>(h, s.State));
+            }
+
+            int launched = 0;
+            if (ws.LaunchMissing)
+            {
+                var matched = new HashSet<int>(pairs.Select(p => p.Key));
+                for (int i = 0; i < ws.Windows.Count; i++)
+                {
+                    var s = ws.Windows[i];
+                    if (matched.Contains(i) || !CanLaunch(s)) continue;
+                    // one launch per app: apps with several saved windows open their usual first window
+                    if (launches.Any(l => string.Equals(l.Saved.Process, s.Process, StringComparison.OrdinalIgnoreCase))) continue;
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo(s.Path) { UseShellExecute = true, WorkingDirectory = System.IO.Path.GetDirectoryName(s.Path) });
+                        launches.Add(new PendingLaunch { Saved = s, Until = DateTime.UtcNow.AddSeconds(30) });
+                        launched++;
+                    }
+                    catch { }
+                }
+            }
+
+            int count = moves.Count;
+            Animator.Run(moves, AnimMs, fails =>
+            {
+                foreach (var st in states)
+                    if (N.IsWindow(st.Key)) N.ShowWindow(st.Key, st.Value == "Maximized" ? N.SW_SHOWMAXIMIZED : N.SW_SHOWMINNOACTIVE);
+                string msg = "Restored " + (count - fails) + " window(s) of '" + ws.Name + "'";
+                if (launched > 0) msg += " and opened " + launched + " app(s)";
+                if (count == 0 && launched == 0) msg = "None of the apps in '" + ws.Name + "' are open.";
+                Notify(msg + (msg.EndsWith(".") ? "" : "."));
+            });
+        }
+
+        private static bool CanLaunch(WorkspaceWindow s)
+        {
+            if (string.IsNullOrEmpty(s.Path) || !File.Exists(s.Path)) return false;
+            // Store apps run inside a host process that can't be started on its own
+            if (string.Equals(s.Process, "ApplicationFrameHost", StringComparison.OrdinalIgnoreCase)) return false;
+            return s.Path.IndexOf(@"\WindowsApps\", StringComparison.OrdinalIgnoreCase) < 0;
+        }
+
+        private void PlaceSaved(IntPtr h, WorkspaceWindow s, List<Monitor> mons)
+        {
+            var r = Workspaces.TargetRect(s, mons);
+            Animator.Run(new List<KeyValuePair<IntPtr, Rectangle>> { new KeyValuePair<IntPtr, Rectangle>(h, r) }, 0, fails =>
+            {
+                if (!N.IsWindow(h)) return;
+                if (s.State == "Maximized") N.ShowWindow(h, N.SW_SHOWMAXIMIZED);
+                else if (s.State == "Minimized") N.ShowWindow(h, N.SW_SHOWMINNOACTIVE);
+            });
+        }
+
+        private void OnDisplayChanged(object sender, EventArgs e)
+        {
+            // may be raised on another thread
+            try { invoker.BeginInvoke((Action)(() => { displayTimer.Stop(); displayTimer.Start(); })); } catch { }
+        }
+
+        private void OnDisplaySettled()
+        {
+            string setup = Workspaces.MonitorSetup(Monitor.All());
+            if (setup == displaySetup) return;
+            displaySetup = setup;
+            var ws = cfg.Workspaces.FirstOrDefault(w => w.AutoRestore && w.MonitorSetup == setup);
+            if (ws != null) RestoreWorkspace(ws, true);
+        }
+
+        private void FlushDeferred()
+        {
+            var rules = deferredRules.ToList();
+            deferredRules.Clear();
+            foreach (var kv in rules) if (N.IsWindow(kv.Key)) ApplyRule(kv.Key, kv.Value, false);
+            if (deferredWorkspace != null) { var ws = deferredWorkspace; deferredWorkspace = null; RestoreWorkspace(ws, true); }
+        }
+
         // ----------------------------------------------------------------- drag snapping
         private void OnWinEvent(IntPtr hook, uint evt, IntPtr hwnd, int idObject, int idChild, uint thread, uint time)
         {
             if (idObject != 0) return;
             if (evt == N.EVENT_SYSTEM_MOVESIZESTART)
             {
+                if (IsPaused) return;
                 dragHwnd = hwnd;
                 dragMon = null;
                 overlayActive = false;
@@ -1682,10 +2169,37 @@ namespace WinZones
                 up.Keywords = "update upgrade new version";
                 items.Add(up);
             }
+            if (IsPaused)
+            {
+                items.Add(WinKit.MenuEntry.Header(manualPause ? "Paused" : "Game mode"));
+                var resume = WinKit.MenuEntry.Item(manualPause ? "Resume WinZones" : "Paused while " + gameReason + " is in front",
+                    WinKit.Icons.Play, () => { if (manualPause) SetPaused(false); else ShowSettings("Game mode"); }, manualPause ? Hotkey("TogglePause") : null);
+                resume.IconColor = WinKit.Theme.Warning;
+                resume.Keywords = "pause resume game mode";
+                items.Add(resume);
+            }
             items.Add(WinKit.MenuEntry.Header("Actions"));
             items.Add(WinKit.MenuEntry.Item("Auto-arrange all windows", WinKit.Icons.Sparkle, AutoArrange, Hotkey("AutoArrange")));
             items.Add(WinKit.MenuEntry.Item("Undo last move", WinKit.Icons.Undo, Undo, Hotkey("Undo")));
+            if (cfg.AppRules.Any(r => r.Enabled))
+            {
+                var ar = WinKit.MenuEntry.Item("Apply app rules now", WinKit.Icons.Apps, () => ApplyRulesToOpenWindows(false), Hotkey("ApplyRules"));
+                ar.Keywords = "app rules place";
+                items.Add(ar);
+            }
             items.Add(WinKit.MenuEntry.Item("Settings", WinKit.Icons.Settings, () => ShowSettings(null)));
+
+            items.Add(WinKit.MenuEntry.Header("Workspaces"));
+            foreach (var w in cfg.Workspaces)
+            {
+                var ws = w;
+                var e = WinKit.MenuEntry.Item(ws.Name, WinKit.Icons.Layers, () => RestoreWorkspace(ws, false), Hotkey(WorkspaceHotkeyPrefix + ws.Name));
+                e.Keywords = "workspace restore " + string.Join(" ", ws.Windows.Select(x => x.Process).Distinct());
+                items.Add(e);
+            }
+            var save = WinKit.MenuEntry.Item("Save current windows as workspace", WinKit.Icons.Save, PromptSaveWorkspace, Hotkey("SaveWorkspace"));
+            save.Keywords = "workspace save new snapshot";
+            items.Add(save);
 
             var mons = Monitor.All();
             for (int mi = 0; mi < mons.Count; mi++)
@@ -1709,6 +2223,8 @@ namespace WinZones
             items.Add(WinKit.MenuEntry.Header("Preferences"));
             items.Add(WinKit.MenuEntry.Toggle("Start with Windows", WinKit.Icons.Startup, IsStartupEnabled(), on => SetStartup(on)));
             items.Add(WinKit.MenuEntry.Toggle("Animations", WinKit.Icons.Sparkle, cfg.Animate, on => { cfg.Animate = on; SaveConfig(); }));
+            items.Add(WinKit.MenuEntry.Toggle("Game mode", WinKit.Icons.Game, cfg.GameMode, on => { cfg.GameMode = on; SaveConfig(); CheckGameMode(); }));
+            items.Add(WinKit.MenuEntry.Toggle("Pause WinZones", WinKit.Icons.Pause, manualPause, on => SetPaused(on)));
             items.Add(WinKit.MenuEntry.Item("Shortcuts", WinKit.Icons.Keyboard, () => ShowSettings("Shortcuts")));
             items.Add(WinKit.MenuEntry.Item("About " + AppInfo.Name, WinKit.Icons.Info, () => ShowSettings("About")));
             items.Add(WinKit.MenuEntry.Separator());
@@ -1788,11 +2304,11 @@ namespace WinZones
         /// Shows a small toast (bottom of the screen) instead of a Windows balloon tip.
         private void Notify(string text)
         {
-            if (!cfg.Notifications) return;
+            if (!cfg.Notifications || gameReason != null) return;   // never pop up over a game
             string lower = text.ToLowerInvariant();
             var kind = lower.Contains("could not") || lower.Contains("taken") || lower.Contains("refused") || lower.Contains("error")
                 ? WinKit.ToastKind.Warning
-                : lower.StartsWith("arranged") || lower.Contains("saved") || lower.Contains("reloaded") ? WinKit.ToastKind.Success
+                : lower.StartsWith("arranged") || lower.StartsWith("restored") || lower.StartsWith("placed") || lower.Contains("saved") || lower.Contains("reloaded") ? WinKit.ToastKind.Success
                 : WinKit.ToastKind.Info;
             string title = kind == WinKit.ToastKind.Success ? "Done" : kind == WinKit.ToastKind.Warning ? "Heads up" : AppInfo.Name;
             WinKit.Toast.Show(title, text, kind);
@@ -1803,6 +2319,7 @@ namespace WinZones
             if (settings != null && !settings.IsDisposed) settings.Close();
             foreach (var id in hotkeyActions.Keys) N.UnregisterHotKey(hk.Handle, id);
             if (winEventHook != IntPtr.Zero) N.UnhookWinEvent(winEventHook);
+            StopFeatures();
             tray.Visible = false;
             tray.Dispose();
             overlay.Dispose();
@@ -1824,8 +2341,13 @@ namespace WinZones
             // started by the updater: WinZones.exe --after-update <previous version>
             string updatedFrom = args.Length == 2 && args[0] == "--after-update" ? args[1] : null;
 
+            // remote control: WinZones.exe --workspace "Coding" | --arrange | --pause | ...  (handled by the running app)
+            string command = CliCommand(args);
+            if (command != null && CommandWindow.Send(command)) return;
+
             using (var mutex = new Mutex(false, "WinZones.SingleInstance"))
             using (var showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, "WinZones.ShowSettings"))
+            using (var quitSignal = new EventWaitHandle(false, EventResetMode.AutoReset, "WinZones.Quit"))   // set by the installer
             {
                 // after an update, wait for the old version to exit instead of handing over to it
                 if (!AcquireInstance(mutex, updatedFrom != null ? 20000 : 0))
@@ -1839,12 +2361,18 @@ namespace WinZones
                     Application.EnableVisualStyles();
                     Application.SetCompatibleTextRenderingDefault(false);
                     Updater.Cleanup();
+                    SyncInstalledVersion();
                     var app = new App(updatedFrom);
+                    if (command != null) app.RunCommandLater(command, 1500);   // e.g. a workspace to restore at sign-in
                     var ui = SynchronizationContext.Current;
                     ThreadPool.RegisterWaitForSingleObject(showSignal, (state, timedOut) =>
                     {
                         if (ui != null) ui.Post(_ => app.ShowSettings(null), null);
                     }, null, -1, false);
+                    ThreadPool.RegisterWaitForSingleObject(quitSignal, (state, timedOut) =>
+                    {
+                        if (ui != null) ui.Post(_ => app.ExitThread(), null);
+                    }, null, -1, true);
                     Application.Run(app);
                 }
                 finally
@@ -1852,6 +2380,47 @@ namespace WinZones
                     try { mutex.ReleaseMutex(); } catch { }
                 }
             }
+        }
+
+        /// Maps command-line switches to commands for the running app; null when there are none.
+        internal static string CliCommand(string[] args)
+        {
+            for (int i = 0; i < args.Length; i++)
+            {
+                string a = args[i].ToLowerInvariant(), next = i + 1 < args.Length ? args[i + 1] : "";
+                switch (a)
+                {
+                    case "--workspace": return next.Length > 0 ? "workspace:" + next : null;
+                    case "--save-workspace": return "save-workspace:" + next;
+                    case "--arrange": return "arrange";
+                    case "--apply-rules": return "apply-rules";
+                    case "--pause": return "pause";
+                    case "--resume": return "resume";
+                    case "--toggle-pause": return "toggle-pause";
+                    case "--settings": return "settings";
+                }
+            }
+            return null;
+        }
+
+        /// After an in-app update, keeps the version shown in Settings > Apps > Installed apps current
+        /// (only when this exe is the copy the installer put there).
+        private static void SyncInstalledVersion()
+        {
+#if !STORE
+            try
+            {
+                using (var k = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\" + AppInfo.Name, true))
+                {
+                    if (k == null) return;
+                    string loc = k.GetValue("InstallLocation") as string;
+                    string here = System.IO.Path.GetDirectoryName(Application.ExecutablePath);
+                    if (loc == null || !string.Equals(loc.TrimEnd('\\'), here.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase)) return;
+                    if ((k.GetValue("DisplayVersion") as string) != AppInfo.Version) k.SetValue("DisplayVersion", AppInfo.Version);
+                }
+            }
+            catch { }
+#endif
         }
 
         /// Takes the single-instance lock, waiting up to `waitMs` (an exiting instance counts as released).

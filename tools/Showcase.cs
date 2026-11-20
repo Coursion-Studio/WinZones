@@ -34,7 +34,7 @@ namespace WinZones.Tools
             Card(dir, "shot-drop.png", f[1], false, "Drop to arrange everything", "Release on the pill and every window finds its place.");
             Card(dir, "shot-arranged.png", f[2], false, "Smart auto-arrange", "Big apps get the main columns, chat and music stack at the side.");
             // the menu floats at full size over the desktop (selection on the active layout)
-            using (var menu = DemoGif.MenuBitmap("", 3, 1.0f))
+            using (var menu = DemoGif.MenuBitmap("", 4, 1.0f))
                 Card(dir, "shot-menu.png", f[3], false, "Command menu", "Right-click the tray icon, type a few letters, press Enter.", menu);
             foreach (var b in f) b.Dispose();
 
@@ -44,7 +44,10 @@ namespace WinZones.Tools
             Card(dir, "shot-settings-layouts.png", pages["Layouts"], true, "A layout for every monitor", "Pick a preset or draw your own, then switch with one key.");
             Card(dir, "shot-settings-shortcuts.png", pages["Shortcuts"], true, "Rebind anything", "Click a shortcut and press the keys you want.");
             Card(dir, "shot-settings-smart.png", pages["Smart arrange"], true, "Teach it your apps", "Simple rules decide how each app is arranged.");
-            Console.WriteLine("wrote 8 cards to " + dir);
+            Card(dir, "shot-workspaces.png", pages["Workspaces"], true, "Workspaces", "Save where every window is, and bring it all back with one key.");
+            Card(dir, "shot-app-rules.png", pages["App rules"], true, "App rules", "Spotify always opens on the right. Your editor always gets the middle.");
+            Card(dir, "shot-game-mode.png", pages["Game mode"], true, "Game mode", "WinZones steps aside while you play: no shortcuts, no overlay, no pop-ups.");
+            Console.WriteLine("wrote 11 cards to " + dir);
             Environment.Exit(0);   // the off-screen settings window is not closed normally on purpose
             return 0;
         }
@@ -139,7 +142,7 @@ namespace WinZones.Tools
         {
             var bf = BindingFlags.NonPublic | BindingFlags.Instance;
             var app = (App)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(App));
-            typeof(App).GetField("cfg", bf).SetValue(app, new Config());
+            typeof(App).GetField("cfg", bf).SetValue(app, DemoConfig());
             var form = new SettingsForm(app) { ShowInTaskbar = false, StartPosition = FormStartPosition.Manual, Location = new Point(-30000, -30000) };
             ShowWindow(form.Handle, 4 /*SW_SHOWNOACTIVATE*/);
             Pump();
@@ -158,12 +161,28 @@ namespace WinZones.Tools
             }) grid.Rows.Add(row);
             grid.ClearSelection();
 
+            // demo apps in the "add" dropdowns (never the real open windows)
+            foreach (var box in new[] { "openAppsBox", "gameAppsBox" })
+            {
+                var dd = (KitDropdown)typeof(SettingsForm).GetField(box, bf).GetValue(form);
+                dd.Items.Clear();
+                dd.Items.AddRange(new[] { "spotify", "discord", "code", "brave" });
+                dd.SetInitial(box == "openAppsBox" ? 0 : 1);
+            }
+
             var shots = new Dictionary<string, Bitmap>();
-            foreach (var name in new[] { "General", "Layouts", "Shortcuts", "Smart arrange" })
+            foreach (var name in new[] { "General", "Layouts", "Shortcuts", "Smart arrange", "Workspaces", "App rules", "Game mode" })
             {
                 foreach (var kv in pages) kv.Value.Visible = kv.Key == name;
                 foreach (var kv in navs) kv.Value.Selected = kv.Key == name;
                 if (name == "Layouts") typeof(SettingsForm).GetMethod("RefreshLayouts", bf).Invoke(form, null);
+                if (name == "Workspaces") typeof(SettingsForm).GetMethod("RefreshWorkspaces", bf).Invoke(form, null);
+                if (name == "Game mode") typeof(SettingsForm).GetMethod("RefreshGameStatus", bf).Invoke(form, null);
+                foreach (var g in new[] { "wsGrid", "wsWindowsGrid", "appRulesGrid" })
+                {
+                    var dg = (DataGridView)typeof(SettingsForm).GetField(g, bf).GetValue(form);
+                    if (g != "wsGrid") dg.ClearSelection();
+                }
                 Pump();
                 using (var full = new Bitmap(form.Width, form.Height))
                 {
@@ -173,6 +192,52 @@ namespace WinZones.Tools
                 }
             }
             return shots;
+        }
+
+        /// Default settings plus made-up workspaces and app rules (nothing from this PC).
+        static Config DemoConfig()
+        {
+            var c = new Config();
+            c.GameApps.AddRange(new[] { "minecraft", "osu!" });
+            c.AppRules.Add(new AppRule { Process = "spotify", Monitor = 2, Place = "Zone 3" });
+            c.AppRules.Add(new AppRule { Process = "discord", Monitor = 2, Place = "Zone 1" });
+            c.AppRules.Add(new AppRule { Process = "code", Monitor = 1, Place = "Zone 2" });
+            c.AppRules.Add(new AppRule { Process = "brave", TitleContains = "YouTube", Monitor = 2, Place = "Fill" });
+            c.AppRules.Add(new AppRule { Process = "windowsterminal", Monitor = 0, Place = "Center", Enabled = false });
+            const string dual = "5120x1440@0,0|2560x1440@5120,0";
+            c.Workspaces.Add(new Workspace
+            {
+                Name = "Coding", MonitorSetup = dual, AutoRestore = true, LaunchMissing = true,
+                Windows = new List<WorkspaceWindow>
+                {
+                    new WorkspaceWindow { Process = "code", Title = "main.ts - my-project - Visual Studio Code", Monitor = 1, X = 25, Y = 0, W = 50, H = 100 },
+                    new WorkspaceWindow { Process = "brave", Title = "Docs - Brave", Monitor = 1, X = 0, Y = 0, W = 25, H = 100 },
+                    new WorkspaceWindow { Process = "windowsterminal", Title = "PowerShell", Monitor = 1, X = 75, Y = 0, W = 25, H = 100 },
+                    new WorkspaceWindow { Process = "discord", Title = "Discord", Monitor = 2, X = 0, Y = 0, W = 100, H = 50 },
+                    new WorkspaceWindow { Process = "spotify", Title = "Spotify", Monitor = 2, X = 0, Y = 50, W = 100, H = 50 },
+                },
+            });
+            c.Workspaces.Add(new Workspace
+            {
+                Name = "Streaming", MonitorSetup = dual,
+                Windows = new List<WorkspaceWindow>
+                {
+                    new WorkspaceWindow { Process = "obs64", Title = "OBS Studio", Monitor = 2, X = 0, Y = 0, W = 100, H = 100, State = "Maximized" },
+                    new WorkspaceWindow { Process = "brave", Title = "Stream chat - Brave", Monitor = 1, X = 75, Y = 0, W = 25, H = 100 },
+                },
+            });
+            c.Workspaces.Add(new Workspace
+            {
+                Name = "Laptop", MonitorSetup = "1920x1200@0,0", AutoRestore = true,
+                Windows = new List<WorkspaceWindow>
+                {
+                    new WorkspaceWindow { Process = "code", Title = "Visual Studio Code", Monitor = 1, X = 0, Y = 0, W = 60, H = 100 },
+                    new WorkspaceWindow { Process = "brave", Title = "Brave", Monitor = 1, X = 60, Y = 0, W = 40, H = 100 },
+                },
+            });
+            c.Hotkeys[App.WorkspaceHotkeyPrefix + "Coding"] = "Win+Alt+1";
+            c.Hotkeys[App.WorkspaceHotkeyPrefix + "Streaming"] = "Win+Alt+2";
+            return c;
         }
 
         static void Pump()

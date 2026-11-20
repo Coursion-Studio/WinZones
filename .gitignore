@@ -7,3 +7,6 @@ dist/
 winzones.json
 winzones.json.bad
 portable.txt
+WinZonesSetup.exe
+obj/
+*.prev.exe

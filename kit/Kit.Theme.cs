@@ -121,6 +121,8 @@ namespace WinKit
         public const string Folder = "", Refresh = "", Heart = "", Link = "", Window = "";
         public const string Fill = "", Center = "", Layers = "", Startup = "", Globe = "";
         public static readonly string Download = ((char)0xE896).ToString(), Update = ((char)0xE777).ToString();
+        public static readonly string Game = ((char)0xE7FC).ToString(), Pause = ((char)0xE769).ToString(), Play = ((char)0xE768).ToString();
+        public static readonly string Apps = ((char)0xE71D).ToString(), Save = ((char)0xE74E).ToString(), Pin = ((char)0xE718).ToString();
     }
 
     // =====================================================================================

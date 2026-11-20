@@ -33,7 +33,7 @@ if not exist WinZones.ico call build.bat >nul || exit /b 1
   /r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Web.Extensions.dll ^
   /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll ^
   /r:"%WINMD%" /r:"%FX%\System.Runtime.dll" /r:"%FX%\System.Runtime.WindowsRuntime.dll" /r:"%FX%\System.Runtime.InteropServices.WindowsRuntime.dll" ^
-  WinZones.cs Ui.cs Overlay.cs Updater.cs kit\Kit.Theme.cs kit\Kit.Popup.cs kit\Kit.Controls.cs store\StoreStartup.cs || goto :fail
+  WinZones.cs Features.cs Ui.cs Overlay.cs Updater.cs kit\Kit.Theme.cs kit\Kit.Popup.cs kit\Kit.Controls.cs store\StoreStartup.cs || goto :fail
 
 rem ---- 2) version: x.y.z from the exe -> x.y.z.0 (the Store requires the 4th part to be 0)
 for /f "usebackq delims=" %%v in (`powershell -NoProfile -Command "(Get-Item '%PKG%\WinZones.exe').VersionInfo.ProductVersion"`) do set "VER=%%v.0"

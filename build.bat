@@ -9,7 +9,7 @@ if not exist "%CSC%" (
   exit /b 1
 )
 set "REFS=/r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Web.Extensions.dll /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll"
-set "SRC=WinZones.cs Ui.cs Overlay.cs Updater.cs kit\Kit.Theme.cs kit\Kit.Popup.cs kit\Kit.Controls.cs"
+set "SRC=WinZones.cs Features.cs Ui.cs Overlay.cs Updater.cs kit\Kit.Theme.cs kit\Kit.Popup.cs kit\Kit.Controls.cs"
 
 rem 1) generate the app icon from the artwork in Ui.cs (only if it does not exist yet)
 if not exist WinZones.ico (

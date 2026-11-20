@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build WinZones.exe
+        shell: cmd
+        run: call build.bat
+
+      - name: Unit tests
+        shell: cmd
+        run: call tests\run-tests.bat
+
+      - name: Build the installer
+        shell: cmd
+        run: call build-setup.bat

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.0 — workspaces, app rules and game mode
+
+- **Workspaces:** save where every window is and bring it all back with one click, a shortcut or `--workspace "Name"`. Missing apps can be opened for you, and a workspace can restore itself when its monitors are connected again (great for docking a laptop).
+- **App rules:** always open an app in the same place, for example Spotify on monitor 2, zone 3. Rules apply when the app's window opens, and **Apply to open windows** tidies up right away.
+- **Game mode:** while a game or any full-screen app is in front, WinZones pauses. Shortcuts go to the game, Shift+drag shows no zones and nothing pops up. Pause by hand any time with **Win+Alt+P**; the tray icon greys out while paused.
+- **Command line:** `--workspace`, `--save-workspace`, `--arrange`, `--apply-rules`, `--pause`, `--resume` and `--settings` control the running app (Stream Deck, AutoHotkey, shortcuts).
+- **Installer:** `WinZonesSetup.exe` installs per user without admin rights, adds a Start menu entry and an Installed apps entry with a clean uninstall, and supports silent installs (`/S`).
+- **winget and Scoop:** `winget install CoursionStudio.WinZones`, or install from the Scoop manifest in this repo.
+- Releases are now built, tested and published by GitHub Actions on a clean machine.
+
 ## 1.2.0 — automatic updates
 
 - **Over-the-air updates:** WinZones checks GitHub Releases a few seconds after start and then every 6 hours. When a new version is out, a toast appears, and an **Update** item shows up at the top of the tray menu and in **Settings → General → Updates**.

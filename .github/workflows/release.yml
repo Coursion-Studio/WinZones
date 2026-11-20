@@ -1,0 +1,132 @@
+# Builds, tests, signs (when set up) and publishes a release when a version tag is pushed:
+#   git tag v1.3.0 && git push origin v1.3.0
+#
+# Optional code signing with Azure Trusted Signing (removes the SmartScreen warning):
+#   repository variable  SIGNING = azure
+#   secrets              AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET
+#   variables            AZURE_SIGNING_ENDPOINT (e.g. https://weu.codesigning.azure.net/),
+#                        AZURE_SIGNING_ACCOUNT, AZURE_SIGNING_PROFILE
+# Optional winget update after the release (the package must already exist in winget-pkgs):
+#   secret               WINGET_TOKEN (a classic GitHub token with public_repo scope)
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      TAG: ${{ github.ref_name }}
+      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag matches the app version
+        shell: pwsh
+        run: |
+          $m = Select-String -Path Ui.cs -Pattern 'public const string Version = "([^"]+)"' | Select-Object -First 1
+          $ver = $m.Matches[0].Groups[1].Value
+          if ("v$ver" -ne $env:TAG) { throw "Tag $env:TAG does not match AppInfo.Version $ver" }
+          if (-not (Select-String -Path CHANGELOG.md -Pattern "^## $([regex]::Escape($ver))" -Quiet)) { throw "CHANGELOG.md has no '## $ver' section" }
+          "VERSION=$ver" >> $env:GITHUB_ENV
+
+      - name: Build WinZones.exe
+        shell: cmd
+        run: call build.bat
+
+      - name: Unit tests
+        shell: cmd
+        run: call tests\run-tests.bat
+
+      - name: Sign WinZones.exe
+        if: ${{ vars.SIGNING == 'azure' }}
+        shell: pwsh
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        run: |
+          Install-Module TrustedSigning -Force -Scope CurrentUser
+          Invoke-TrustedSigning -Endpoint '${{ vars.AZURE_SIGNING_ENDPOINT }}' -CodeSigningAccountName '${{ vars.AZURE_SIGNING_ACCOUNT }}' `
+            -CertificateProfileName '${{ vars.AZURE_SIGNING_PROFILE }}' -Files "$PWD\WinZones.exe" `
+            -FileDigest SHA256 -TimestampRfc3161 'http://timestamp.acs.microsoft.com' -TimestampDigest SHA256
+
+      - name: Build the installer (with the signed app inside)
+        shell: cmd
+        run: call build-setup.bat
+
+      - name: Sign WinZonesSetup.exe
+        if: ${{ vars.SIGNING == 'azure' }}
+        shell: pwsh
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        run: |
+          Invoke-TrustedSigning -Endpoint '${{ vars.AZURE_SIGNING_ENDPOINT }}' -CodeSigningAccountName '${{ vars.AZURE_SIGNING_ACCOUNT }}' `
+            -CertificateProfileName '${{ vars.AZURE_SIGNING_PROFILE }}' -Files "$PWD\WinZonesSetup.exe" `
+            -FileDigest SHA256 -TimestampRfc3161 'http://timestamp.acs.microsoft.com' -TimestampDigest SHA256
+
+      - name: Pack release files
+        shell: pwsh
+        run: ./tools/package.ps1
+
+      - name: Release notes from CHANGELOG.md
+        shell: pwsh
+        run: |
+          $lines = Get-Content CHANGELOG.md
+          $start = ($lines | Select-String -Pattern "^## $([regex]::Escape($env:VERSION))" | Select-Object -First 1).LineNumber
+          $notes = @()
+          for ($i = $start; $i -lt $lines.Count -and $lines[$i] -notmatch '^## '; $i++) { $notes += $lines[$i] }
+          $notes += ''
+          $notes += '### Install'
+          $notes += "- **Installer:** download ``WinZonesSetup-$env:VERSION.exe`` and run it (no admin rights needed)."
+          $notes += "- **winget:** ``winget install CoursionStudio.WinZones``"
+          $notes += "- **Portable:** download ``WinZones-$env:VERSION-win.zip``, unzip it anywhere and run ``WinZones.exe``."
+          $notes += ''
+          $notes += 'Already using WinZones? It updates itself: right-click the tray icon and choose **Update**.'
+          ($notes -join "`n").Trim() | Set-Content -Encoding utf8 notes.md
+
+      - name: Publish the GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $v = $env:VERSION
+          gh release create $env:TAG "dist/WinZonesSetup-$v.exe" "dist/WinZonesSetup-$v.exe.sha256" `
+            "dist/WinZones-$v-win.zip" "dist/WinZones-$v-win.zip.sha256" `
+            --title "WinZones $v" --notes-file notes.md --latest
+
+      - name: Commit the Scoop manifest to main
+        shell: pwsh
+        run: |
+          Copy-Item packaging/scoop/winzones.json "$env:RUNNER_TEMP/winzones.json"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout -f -B main origin/main
+          New-Item -ItemType Directory -Force packaging/scoop | Out-Null
+          Copy-Item "$env:RUNNER_TEMP/winzones.json" packaging/scoop/winzones.json -Force
+          git add packaging/scoop/winzones.json
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) { git commit -m "Scoop manifest for $env:VERSION"; git push origin main }
+
+      - name: Keep the winget manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: winget-manifests
+          path: dist/winget
+
+      - name: Update winget
+        if: ${{ env.WINGET_TOKEN != '' }}
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+          ./wingetcreate.exe update CoursionStudio.WinZones --version $env:VERSION `
+            --urls "https://github.com/Coursion-Studio/WinZones/releases/download/$env:TAG/WinZonesSetup-$env:VERSION.exe" `
+            --token $env:WINGET_TOKEN --submit

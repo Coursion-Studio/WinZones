@@ -20,6 +20,9 @@ Too many windows open? Press Win + Alt + A, or drop a window on the "Auto-arrang
 • Your own layouts: draw them in a visual editor, one per monitor
 • Global shortcuts for snapping, cycling zones, switching layouts, fill, center and moving to the next monitor
 • Command menu: right-click the tray icon, type a few letters and press Enter
+• Workspaces: save where every window is ("Coding", "Streaming") and bring it all back with one key, even after you dock your laptop
+• App rules: Spotify always opens on your second monitor, your editor always gets the middle
+• Game mode: while you play, WinZones steps aside: no shortcuts, no overlay, no pop-ups
 • Multi-level undo with Win + Alt + Z
 • Smooth animations that stay light even on 5K ultrawide monitors
 • A clean, dark settings app where every shortcut can be rebound
@@ -28,12 +31,15 @@ Too many windows open? Press Win + Alt + A, or drop a window on the "Auto-arrang
 WinZones is open source (MIT License): https://github.com/Coursion-Studio/WinZones
 
 ## What's new in this version
-First release on the Microsoft Store. It includes zone snapping with Shift + drag, smart auto-arrange, custom layouts per monitor, the tray command menu and fully rebindable shortcuts.
+First release on the Microsoft Store. It includes zone snapping with Shift + drag, smart auto-arrange, workspaces you can save and restore with one key, app rules that open every app in its place, game mode, custom layouts per monitor, the tray command menu and fully rebindable shortcuts.
 
 ## Product features (one per line, up to 20)
 Shift + drag a window to snap it into a zone
 Shift + Ctrl to span a window across several zones
 Smart auto-arrange of all open windows with one key
+Workspaces: save every window's place and restore it with one key
+App rules: always open an app on the same monitor and zone
+Game mode: pauses automatically while you play
 Visual layout editor with ultrawide, 16:9 and grid presets
 A separate layout for every monitor
 Global, rebindable keyboard shortcuts
@@ -56,11 +62,13 @@ Upload in this order from the repo's `docs` folder:
 1. shot-snap.png: Shift + drag to snap
 2. shot-drop.png: Drop to arrange everything
 3. shot-arranged.png: Smart auto-arrange
-4. shot-menu.png: Command menu
-5. shot-settings-general.png: Settings
-6. shot-settings-layouts.png: A layout for every monitor
-7. shot-settings-shortcuts.png: Rebind anything
-8. shot-settings-smart.png: Teach it your apps
+4. shot-workspaces.png: Workspaces
+5. shot-app-rules.png: App rules
+6. shot-game-mode.png: Game mode
+7. shot-menu.png: Command menu
+8. shot-settings-layouts.png: A layout for every monitor
+9. shot-settings-shortcuts.png: Rebind anything
+10. shot-settings-smart.png: Teach it your apps
 
 ## Store logos (optional)
 Leave empty. The package already contains its logos.
