@@ -112,7 +112,7 @@ jobs:
           git checkout -f -B main origin/main
           New-Item -ItemType Directory -Force packaging/scoop | Out-Null
           Copy-Item "$env:RUNNER_TEMP/winzones.json" packaging/scoop/winzones.json -Force
-          git add packaging/scoop/winzones.json
+          git add -f packaging/scoop/winzones.json
           git diff --cached --quiet
           if ($LASTEXITCODE -ne 0) { git commit -m "Scoop manifest for $env:VERSION"; git push origin main }
 

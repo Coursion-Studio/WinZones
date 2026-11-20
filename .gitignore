@@ -4,9 +4,9 @@ dist/
 *.pdb
 
 # local settings (portable mode) and backups
-winzones.json
-winzones.json.bad
-portable.txt
+/winzones.json
+/winzones.json.bad
+/portable.txt
 WinZonesSetup.exe
 obj/
 *.prev.exe
