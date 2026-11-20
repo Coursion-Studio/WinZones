@@ -6,8 +6,6 @@
 #   secrets              AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET
 #   variables            AZURE_SIGNING_ENDPOINT (e.g. https://weu.codesigning.azure.net/),
 #                        AZURE_SIGNING_ACCOUNT, AZURE_SIGNING_PROFILE
-# Optional winget update after the release (the package must already exist in winget-pkgs):
-#   secret               WINGET_TOKEN (a classic GitHub token with public_repo scope)
 name: Release
 
 on:
@@ -22,7 +20,6 @@ jobs:
     runs-on: windows-latest
     env:
       TAG: ${{ github.ref_name }}
-      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -86,7 +83,7 @@ jobs:
           $notes += ''
           $notes += '### Install'
           $notes += "- **Installer:** download ``WinZonesSetup-$env:VERSION.exe`` and run it (no admin rights needed)."
-          $notes += "- **winget:** ``winget install CoursionStudio.WinZones``"
+          $notes += "- **Scoop:** ``scoop install https://raw.githubusercontent.com/Coursion-Studio/WinZones/main/packaging/scoop/winzones.json``"
           $notes += "- **Portable:** download ``WinZones-$env:VERSION-win.zip``, unzip it anywhere and run ``WinZones.exe``."
           $notes += ''
           $notes += 'Already using WinZones? It updates itself: right-click the tray icon and choose **Update**.'
@@ -115,18 +112,3 @@ jobs:
           git add -f packaging/scoop/winzones.json
           git diff --cached --quiet
           if ($LASTEXITCODE -ne 0) { git commit -m "Scoop manifest for $env:VERSION"; git push origin main }
-
-      - name: Keep the winget manifests
-        uses: actions/upload-artifact@v4
-        with:
-          name: winget-manifests
-          path: dist/winget
-
-      - name: Update winget
-        if: ${{ env.WINGET_TOKEN != '' }}
-        shell: pwsh
-        run: |
-          Invoke-WebRequest https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
-          ./wingetcreate.exe update CoursionStudio.WinZones --version $env:VERSION `
-            --urls "https://github.com/Coursion-Studio/WinZones/releases/download/$env:TAG/WinZonesSetup-$env:VERSION.exe" `
-            --token $env:WINGET_TOKEN --submit

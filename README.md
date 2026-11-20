@@ -38,12 +38,6 @@
 
 **Installer (recommended).** Download **`WinZonesSetup-x.y.z.exe`** from the [latest release](https://github.com/Coursion-Studio/WinZones/releases/latest) and run it. It installs just for you, with no admin rights, and adds WinZones to the Start menu and to **Settings → Apps → Installed apps**, so you can uninstall it like any other app.
 
-**winget**
-
-```powershell
-winget install CoursionStudio.WinZones
-```
-
 **Scoop**
 
 ```powershell
@@ -232,12 +226,12 @@ cd WinZones
 build.bat           :: -> WinZones.exe
 tests\run-tests.bat :: unit tests
 build-setup.bat     :: -> WinZonesSetup.exe (per-user installer with WinZones.exe inside)
-release.bat         :: all of the above, then dist\: zip, installer, .sha256 files, winget + Scoop manifests
+release.bat         :: all of the above, then dist\: zip, installer, .sha256 files, and the Scoop manifest
 tools\make-demo.bat :: -> docs\demo.gif + docs\shot-*.png (README media, rendered from the app's own drawing code)
 store.bat           :: -> dist\store\WinZones-<version>.0.msix (Microsoft Store package; needs the Windows SDK)
 ```
 
-> **Releasing:** bump `AppInfo.Version` in `Ui.cs`, add a `## X.Y.Z` section to `CHANGELOG.md`, then push a `vX.Y.Z` tag. The **Release** workflow builds and tests on a clean machine, signs the files when signing is set up, publishes the release with notes from the changelog, updates the Scoop manifest and, with a `WINGET_TOKEN` secret, submits the winget update. The in-app updater looks for `WinZones-X.Y.Z-win.zip` + `.sha256`, so keep those names; it skips drafts and pre-releases.
+> **Releasing:** bump `AppInfo.Version` in `Ui.cs`, add a `## X.Y.Z` section to `CHANGELOG.md`, then push a `vX.Y.Z` tag. The **Release** workflow builds and tests on a clean machine, signs the files when signing is set up, publishes the release with notes from the changelog, and updates the Scoop manifest. The in-app updater looks for `WinZones-X.Y.Z-win.zip` + `.sha256`, so keep those names; it skips drafts and pre-releases.
 
 | File | What's inside |
 |---|---|
@@ -248,7 +242,7 @@ store.bat           :: -> dist\store\WinZones-<version>.0.msix (Microsoft Store 
 | `Ui.cs` | Settings window, icon artwork, app info / version |
 | `kit/` | **WinKit**, the reusable UI kit (see below) |
 | `tools/` | README demo generator: animates a mock desktop with the real overlay, smart-arrange and menu code, and writes the GIF |
-| `setup/` | The installer: per-user install, update and uninstall, silent mode for winget |
+| `setup/` | The installer: per-user install, update and uninstall, silent mode (`/S`) for scripts |
 | `tests/` | Unit tests (plain C#, no framework) |
 | `store/` | Microsoft Store packaging: manifest template, package identity, Store startup task, listing texts |
 | `.github/workflows/` | CI on every push, and the tag-triggered release pipeline |

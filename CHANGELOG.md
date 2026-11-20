@@ -7,7 +7,7 @@
 - **Game mode:** while a game or any full-screen app is in front, WinZones pauses. Shortcuts go to the game, Shift+drag shows no zones and nothing pops up. Pause by hand any time with **Win+Alt+P**; the tray icon greys out while paused.
 - **Command line:** `--workspace`, `--save-workspace`, `--arrange`, `--apply-rules`, `--pause`, `--resume` and `--settings` control the running app (Stream Deck, AutoHotkey, shortcuts).
 - **Installer:** `WinZonesSetup.exe` installs per user without admin rights, adds a Start menu entry and an Installed apps entry with a clean uninstall, and supports silent installs (`/S`).
-- **winget and Scoop:** `winget install CoursionStudio.WinZones`, or install from the Scoop manifest in this repo.
+- **Scoop:** install from the Scoop manifest in this repo.
 - Releases are now built, tested and published by GitHub Actions on a clean machine.
 
 ## 1.2.0 — automatic updates

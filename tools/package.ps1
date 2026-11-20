@@ -1,7 +1,6 @@
-# Packs an already-built WinZones.exe and WinZonesSetup.exe into dist\ and writes the package-manager manifests.
+# Packs an already-built WinZones.exe and WinZonesSetup.exe into dist\ and writes the Scoop manifest.
 #   dist\WinZones-X.Y.Z-win.zip (+ .sha256)    portable zip; the in-app updater downloads this one
-#   dist\WinZonesSetup-X.Y.Z.exe (+ .sha256)   per-user installer (winget installs this one)
-#   dist\winget\X.Y.Z\*.yaml                   winget manifests (for the first winget-pkgs submission)
+#   dist\WinZonesSetup-X.Y.Z.exe (+ .sha256)   per-user installer
 #   packaging\scoop\winzones.json              Scoop manifest
 # release.bat runs it locally; the Release workflow runs it after signing and commits the Scoop manifest,
 # so the hashes always match the files that were really published.
@@ -27,85 +26,9 @@ $setup = "dist\WinZonesSetup-$v.exe"
 Copy-Item -Force WinZonesSetup.exe $setup
 $setupHash = Write-Sha $setup
 
-# ---------------------------------------------------------------- package manifests
+# ---------------------------------------------------------------- Scoop manifest
 $base = "https://github.com/Coursion-Studio/WinZones/releases/download/v$v"
-$id = "CoursionStudio.WinZones"
-$wg = "dist\winget\$v"
-New-Item -ItemType Directory -Force $wg | Out-Null
 $enc = New-Object Text.UTF8Encoding $false
-
-[IO.File]::WriteAllText("$root\$wg\$id.yaml", @"
-# yaml-language-server: `$schema=https://aka.ms/winget-manifest.version.1.6.0.schema.json
-PackageIdentifier: $id
-PackageVersion: $v
-DefaultLocale: en-US
-ManifestType: version
-ManifestVersion: 1.6.0
-"@, $enc)
-
-[IO.File]::WriteAllText("$root\$wg\$id.installer.yaml", @"
-# yaml-language-server: `$schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
-PackageIdentifier: $id
-PackageVersion: $v
-MinimumOSVersion: 10.0.18362.0
-InstallerType: exe
-Scope: user
-InstallModes:
-- interactive
-- silent
-- silentWithProgress
-InstallerSwitches:
-  Silent: /S
-  SilentWithProgress: /S
-  InstallLocation: /dir="<INSTALLPATH>"
-UpgradeBehavior: install
-ProductCode: WinZones
-AppsAndFeaturesEntries:
-- DisplayName: WinZones
-  Publisher: Coursion Studio
-  ProductCode: WinZones
-Installers:
-- Architecture: neutral
-  InstallerUrl: $base/WinZonesSetup-$v.exe
-  InstallerSha256: $setupHash
-ManifestType: installer
-ManifestVersion: 1.6.0
-"@, $enc)
-
-[IO.File]::WriteAllText("$root\$wg\$id.locale.en-US.yaml", @"
-# yaml-language-server: `$schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
-PackageIdentifier: $id
-PackageVersion: $v
-PackageLocale: en-US
-Publisher: Coursion Studio
-PublisherUrl: https://github.com/Coursion-Studio
-PublisherSupportUrl: https://github.com/Coursion-Studio/WinZones/issues
-PrivacyUrl: https://github.com/Coursion-Studio/WinZones/blob/main/PRIVACY.md
-Author: kuraydev
-PackageName: WinZones
-PackageUrl: https://github.com/Coursion-Studio/WinZones
-License: MIT
-LicenseUrl: https://github.com/Coursion-Studio/WinZones/blob/main/LICENSE
-ShortDescription: Snap windows into zones with Shift + drag, and arrange every window with one key.
-Description: |-
-  WinZones is a fast, free window manager for Windows 10 and 11.
-  Hold Shift while dragging a window to snap it into a zone, press Win+Alt+A to tile every window by app type,
-  save workspaces and bring them back with one key, give apps a fixed place, and let game mode keep it out of your way while you play.
-Moniker: winzones
-Tags:
-- window-manager
-- tiling
-- zones
-- snap
-- workspaces
-- ultrawide
-- productivity
-- fancyzones
-ReleaseNotesUrl: https://github.com/Coursion-Studio/WinZones/releases/tag/v$v
-ManifestType: defaultLocale
-ManifestVersion: 1.6.0
-"@, $enc)
-
 New-Item -ItemType Directory -Force packaging\scoop | Out-Null
 [IO.File]::WriteAllText("$root\packaging\scoop\winzones.json", @"
 {
@@ -127,4 +50,4 @@ New-Item -ItemType Directory -Force packaging\scoop | Out-Null
 
 Write-Host "Release files for $v in dist\:"
 Get-ChildItem dist -Filter "*$v*" | ForEach-Object { Write-Host "  $($_.Name)" }
-Write-Host "Manifests: $wg, packaging\scoop\winzones.json"
+Write-Host "Scoop manifest: packaging\scoop\winzones.json"

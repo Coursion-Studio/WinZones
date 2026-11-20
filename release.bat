@@ -1,5 +1,5 @@
 @echo off
-rem Builds, tests and packs a release into dist\ (zip, installer, checksums) and refreshes the winget/Scoop manifests.
+rem Builds, tests and packs a release into dist\ (zip, installer, checksums) and refreshes the Scoop manifest.
 rem The GitHub "Release" workflow does the same on a clean machine (and signs the files) when you push a vX.Y.Z tag.
 setlocal
 cd /d "%~dp0"

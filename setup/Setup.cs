@@ -2,7 +2,7 @@
 // Copyright (c) 2026 the WinZones authors. MIT License (see LICENSE).
 //
 //   WinZonesSetup.exe                    install or update (window)
-//   WinZonesSetup.exe /S                 silent install (winget, scripts); add /nostartup, /launch, /dir="<folder>"
+//   WinZonesSetup.exe /S                 silent install (scripts); add /nostartup, /launch, /dir="<folder>"
 //   Uninstall.exe /uninstall [/S] [/purge]   remove it again; /purge also deletes settings
 //
 // Exit codes: 0 done, 1 failed, 2 cancelled.
