@@ -32,8 +32,19 @@ internal static class Tests
         return new Monitor { Bounds = new Rectangle(x, y, w, h), Work = new Rectangle(x, y, w, h - 48), Primary = primary, Device = "M" + x };
     }
 
-    private static int Main()
+    private static int Main(string[] args)
     {
+        // translators: WinZones.Tests.exe --dump-keys lang\keys.json writes every English string to translate
+        if (args.Length == 2 && args[0] == "--dump-keys")
+        {
+            var keys = SourceStrings().OrderBy(k => k, StringComparer.Ordinal).ToList();
+            var d = new Dictionary<string, string>();
+            foreach (var k in keys) d[k] = k;
+            System.IO.File.WriteAllText(args[1], PrettyJson(d), new System.Text.UTF8Encoding(false));
+            Console.WriteLine(keys.Count + " strings written to " + args[1]);
+            return 0;
+        }
+        LanguageTests();
         GameModeTests();
         AppRuleTests();
         WorkspaceTests();
@@ -173,6 +184,73 @@ internal static class Tests
         {
             field.SetValue(null, prev);
             try { System.IO.Directory.Delete(dir, true); } catch { }
+        }
+    }
+
+    // ------------------------------------------------------------------ languages, What's New
+    /// Every English string in the code (L.T / L.F / L.N / KitText.Tr literals) plus the newest CHANGELOG section.
+    private static HashSet<string> SourceStrings()
+    {
+        var set = new HashSet<string>(StringComparer.Ordinal);
+        var rx = new System.Text.RegularExpressions.Regex("(?:\\bL\\.[TFN]|KitText\\.Tr)\\(\\s*\"((?:[^\"\\\\]|\\\\.)*)\"");
+        var files = System.IO.Directory.GetFiles(".", "*.cs").Concat(System.IO.Directory.GetFiles("kit", "*.cs"));
+        foreach (var f in files)
+            foreach (System.Text.RegularExpressions.Match m in rx.Matches(System.IO.File.ReadAllText(f)))
+                set.Add(System.Text.RegularExpressions.Regex.Unescape(m.Groups[1].Value));
+        foreach (var s in Changelog.Strings(Changelog.ParseLatest(System.IO.File.ReadAllText("CHANGELOG.md")))) set.Add(s);
+        return set;
+    }
+
+    private static string PrettyJson(Dictionary<string, string> d)
+    {
+        var js = new JavaScriptSerializer();
+        return "{\n" + string.Join(",\n", d.Select(kv => "  " + js.Serialize(kv.Key) + ": " + js.Serialize(kv.Value))) + "\n}\n";
+    }
+
+    private static string Marks(string s)
+    {
+        // what a translation must keep: {0}-style placeholders and **bold** / `code` markers
+        var ph = System.Text.RegularExpressions.Regex.Matches(s, "\\{\\d+\\}").Cast<System.Text.RegularExpressions.Match>().Select(m => m.Value).OrderBy(x => x);
+        int bold = (s.Length - s.Replace("**", "").Length) / 2, code = s.Count(c => c == '`');
+        return string.Join(",", ph) + "|" + bold + "|" + code;
+    }
+
+    private static void LanguageTests()
+    {
+        Eq(L.Resolve("", "de-DE"), "de", "German Windows picks German");
+        Eq(L.Resolve("", "pt-PT"), "pt-BR", "any Portuguese picks Brazilian Portuguese");
+        Eq(L.Resolve("", "zh-CN"), "zh-Hans", "Simplified Chinese Windows picks Simplified Chinese");
+        Eq(L.Resolve("", "zh-TW"), "en", "Traditional Chinese falls back to English (no Traditional translation yet)");
+        Eq(L.Resolve("", "sv-SE"), "en", "a language WinZones doesn't have falls back to English");
+        Eq(L.Resolve("tr", "en-US"), "tr", "a chosen language wins over Windows' language");
+        Eq(L.Resolve("PT-br", "en-US"), "pt-BR", "language codes are case-insensitive");
+        Eq(L.T("Some text nobody translated"), "Some text nobody translated", "unknown strings stay English");
+
+        var notes = Changelog.ParseLatest("# Changelog\n\n## 2.0.0 — big one\n\n_2026-01-02_\n\n- **Fast:** really `fast` now\n- plain bullet\n\n## 1.0.0 — old\n- **Old:** x\n");
+        Check(notes != null && notes.Version == "2.0.0" && notes.Title == "big one" && notes.Date == "2026-01-02", "changelog heading and date are parsed");
+        Check(notes != null && notes.Items.Count == 2 && notes.Items[0].Title == "Fast" && notes.Items[0].Detail == "really `fast` now" && notes.Items[1].Plain, "changelog bullets are parsed, older sections ignored");
+        var shipped = Changelog.ParseLatest(System.IO.File.ReadAllText("CHANGELOG.md"));
+        Check(shipped != null && shipped.Version == AppInfo.Version, "CHANGELOG.md starts with this version (" + AppInfo.Version + "), so What's New shows after updating");
+
+        var keys = SourceStrings();
+        Check(keys.Count > 300, "the string scan finds the UI text (" + keys.Count + ")");
+        foreach (var lang in L.Languages.Where(l => l[0] != "en"))
+        {
+            string file = System.IO.Path.Combine("lang", lang[0] + ".json");
+            if (!System.IO.File.Exists(file)) { Check(false, file + " exists"); continue; }
+            Dictionary<string, string> map;
+            try { map = L.Parse(System.IO.File.ReadAllText(file, System.Text.Encoding.UTF8)); }
+            catch (Exception ex) { Check(false, file + " is valid JSON: " + ex.Message); continue; }
+            var missing = keys.Where(k => !map.ContainsKey(k) || string.IsNullOrWhiteSpace(map[k])).ToList();
+            if (missing.Count > 0) Console.WriteLine("      " + lang[0] + " misses: " + string.Join(" | ", missing.Take(5)));
+            Check(missing.Count == 0, lang[0] + " translates every string (" + missing.Count + " missing)");
+            var stale = map.Keys.Where(k => !keys.Contains(k)).ToList();
+            if (stale.Count > 0) Console.WriteLine("      " + lang[0] + " has unused: " + string.Join(" | ", stale.Take(5)));
+            Check(stale.Count == 0, lang[0] + " has no unused strings (" + stale.Count + ")");
+            var broken = map.Where(kv => keys.Contains(kv.Key) && kv.Value != null && Marks(kv.Key) != Marks(kv.Value)).Select(kv => kv.Key).ToList();
+            if (broken.Count > 0) Console.WriteLine("      " + lang[0] + " placeholders differ: " + string.Join(" | ", broken.Take(5)));
+            Check(broken.Count == 0, lang[0] + " keeps every {0} placeholder and ** / ` marker");
+            Check(L.Load(lang[0]).Count == map.Count, lang[0] + " is compiled into the exe");
         }
     }
 

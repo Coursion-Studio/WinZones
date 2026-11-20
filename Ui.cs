@@ -22,7 +22,7 @@ namespace WinZones
     internal static class AppInfo
     {
         public const string Name = "WinZones";
-        public const string Version = "1.3.0";
+        public const string Version = "1.4.0";
         public const string Author = "kuraydev";
         public const string Url = "https://github.com/Coursion-Studio/WinZones";
         public const string Tagline = "Zones, hotkeys and smart auto-arrange for Windows";
@@ -459,12 +459,12 @@ namespace WinZones
 
             if (recording && (live == null || live == "!"))
             {
-                Gfx.Text(g, live == "!" ? "Add Win, Ctrl or Alt" : "Press keys...", Theme.Ui(9.5f), new RectangleF(0, 0, Width, Height),
+                Gfx.Text(g, live == "!" ? L.T("Add Win, Ctrl or Alt") : L.T("Press keys..."), Theme.Ui(9.5f), new RectangleF(0, 0, Width, Height),
                     live == "!" ? Theme.Warning : Color.FromArgb(200, 215, 255), StringAlignment.Center);
                 return;
             }
             string show = recording ? live + "+..." : value;
-            if (string.IsNullOrEmpty(show)) { Gfx.Text(g, "Not set", Theme.Ui(9.5f), new RectangleF(0, 0, Width, Height), Theme.TextMuted, StringAlignment.Center); return; }
+            if (string.IsNullOrEmpty(show)) { Gfx.Text(g, L.T("Not set"), Theme.Ui(9.5f), new RectangleF(0, 0, Width, Height), Theme.TextMuted, StringAlignment.Center); return; }
             float w = Gfx.KeycapsWidth(g, show, s);
             Gfx.Keycaps(g, show, (Width - w) / 2, Height / 2f, s, !recording);
         }
@@ -502,27 +502,28 @@ namespace WinZones
             "SnapZone1", "SnapZone2", "SnapZone3", "SnapZone4", "SnapZone5", "SnapZone6", "SnapZone7", "SnapZone8", "SnapZone9"
         };
 
-        private static readonly string[] PageOrder = { "General", "Layouts", "Workspaces", "App rules", "Shortcuts", "Smart arrange", "Game mode", "About" };
+        // page keys stay English (ShowPage("Game mode")); the sidebar and titles show them translated
+        private static readonly string[] PageOrder = { L.N("General"), L.N("Layouts"), L.N("Workspaces"), L.N("App rules"), L.N("Shortcuts"), L.N("Smart arrange"), L.N("Game mode"), L.N("About") };
 
         public static string ActionLabel(string a)
         {
-            if (a.StartsWith(App.WorkspaceHotkeyPrefix)) return "Restore workspace '" + a.Substring(App.WorkspaceHotkeyPrefix.Length) + "'";
+            if (a.StartsWith(App.WorkspaceHotkeyPrefix)) return L.F("Restore workspace '{0}'", a.Substring(App.WorkspaceHotkeyPrefix.Length));
             switch (a)
             {
-                case "TogglePause": return "Pause or resume WinZones";
-                case "SaveWorkspace": return "Save windows as a workspace";
-                case "ApplyRules": return "Apply app rules to open windows";
-                case "AutoArrange": return "Auto-arrange all windows";
-                case "Undo": return "Undo last move";
-                case "NextZone": return "Move window to next zone";
-                case "PrevZone": return "Move window to previous zone";
-                case "NextLayout": return "Switch to next layout";
-                case "EditLayout": return "Open layout editor";
-                case "NextMonitor": return "Move window to next monitor";
-                case "Fill": return "Fill the screen";
-                case "Center": return "Center window";
+                case "TogglePause": return L.T("Pause or resume WinZones");
+                case "SaveWorkspace": return L.T("Save windows as a workspace");
+                case "ApplyRules": return L.T("Apply app rules to open windows");
+                case "AutoArrange": return L.T("Auto-arrange all windows");
+                case "Undo": return L.T("Undo last move");
+                case "NextZone": return L.T("Move window to next zone");
+                case "PrevZone": return L.T("Move window to previous zone");
+                case "NextLayout": return L.T("Switch to next layout");
+                case "EditLayout": return L.T("Open layout editor");
+                case "NextMonitor": return L.T("Move window to next monitor");
+                case "Fill": return L.T("Fill the screen");
+                case "Center": return L.T("Center window");
             }
-            if (a.StartsWith("SnapZone")) return "Snap window to zone " + a.Substring(8);
+            if (a.StartsWith("SnapZone")) return L.F("Snap window to zone {0}", a.Substring(8));
             return a;
         }
 
@@ -534,7 +535,7 @@ namespace WinZones
             SuspendLayout();
             AutoScaleDimensions = new SizeF(96F, 96F);
             AutoScaleMode = AutoScaleMode.Dpi;
-            Text = AppInfo.Name + " Settings";
+            Text = L.F("{0} Settings", AppInfo.Name);
             Icon = IconArt.MakeIcon(32);
             ClientSize = new Size(1120, 740);
             MinimumSize = new Size(1040, 660);
@@ -610,7 +611,7 @@ namespace WinZones
             };
             foreach (var p in PageOrder)
             {
-                var item = new KitNavItem(p, glyphs[p]);
+                var item = new KitNavItem(L.T(p), glyphs[p]);
                 string page = p;
                 item.Click += (s, e) => ShowPage(page);
                 navs[p] = item;
@@ -619,7 +620,7 @@ namespace WinZones
             }
 
             var bottom = new Panel { Dock = DockStyle.Bottom, Height = 66, BackColor = T.Sidebar, Padding = new Padding(14, 10, 14, 18) };
-            var arrange = T.Btn("Arrange all windows", true, Icons.Sparkle);
+            var arrange = T.Btn(L.T("Arrange all windows"), true, Icons.Sparkle);
             arrange.Dock = DockStyle.Fill;
             arrange.Font = Theme.Ui(9.75f, FontStyle.Bold);
             arrange.Click += (s, e) => app.AutoArrange();
@@ -690,7 +691,7 @@ namespace WinZones
         private static Control Section(string text)
         {
             var p = new Panel { Height = 36, BackColor = T.Bg };
-            var l = T.Lbl(text.ToUpperInvariant(), 8.25f, true, Theme.TextMuted);
+            var l = T.Lbl(text.ToUpper(L.Culture), 8.25f, true, Theme.TextMuted);
             l.Location = new Point(4, 14);
             p.Controls.Add(l);
             return p;
@@ -709,16 +710,38 @@ namespace WinZones
                 d.Location = new Point(18, 38);
                 card.Controls.Add(d);
             }
-            if (right.Length == 0) return card;
-            var tl = new TableLayoutPanel { Dock = DockStyle.Right, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, BackColor = Color.Transparent, ColumnCount = right.Length, RowCount = 1, Padding = new Padding(0, 0, 16, 0) };
-            tl.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            for (int i = 0; i < right.Length; i++)
+            TableLayoutPanel tl = null;
+            if (right.Length > 0)
             {
-                right[i].Anchor = AnchorStyles.Right;
-                right[i].Margin = new Padding(8, 0, 0, 0);
-                tl.Controls.Add(right[i], i, 0);
+                tl = new TableLayoutPanel { Dock = DockStyle.Right, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, BackColor = Color.Transparent, ColumnCount = right.Length, RowCount = 1, Padding = new Padding(0, 0, 16, 0) };
+                tl.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+                for (int i = 0; i < right.Length; i++)
+                {
+                    right[i].Anchor = AnchorStyles.Right;
+                    right[i].Margin = new Padding(8, 0, 0, 0);
+                    tl.Controls.Add(right[i], i, 0);
+                }
+                card.Controls.Add(tl);
             }
-            card.Controls.Add(tl);
+            // long text (translations, paths) wraps beside the controls and the card grows to fit
+            int baseH = card.Height;
+            card.Layout += (s, e) =>
+            {
+                float sc = card.DeviceDpi / 96f;
+                int room = card.Width - t.Left - (tl != null ? tl.Width : 0) - (int)(14 * sc);
+                if (room < 60) return;
+                t.MaximumSize = new Size(room, 0);
+                int h = (int)(baseH * sc);
+                if (desc != null)
+                {
+                    var d = (Label)card.Controls[1];
+                    d.MaximumSize = new Size(room, 0);
+                    d.Top = t.Bottom + (int)(4 * sc);
+                    h = Math.Max(h, d.Bottom + (int)(14 * sc));
+                }
+                else h = Math.Max(h, t.Bottom + (int)(16 * sc));
+                if (card.Height != h) card.Height = h;
+            };
             return card;
         }
 
@@ -726,33 +749,47 @@ namespace WinZones
         private Control BuildGeneral()
         {
             var page = new Page();
-            page.Add(Title("General", "How WinZones behaves day to day."), 8);
+            page.Add(Title(L.T("General"), L.T("How WinZones behaves day to day.")), 8);
 
-            page.Add(Section("Startup"));
+            page.Add(Section(L.T("Language")));
+            var lang = new KitDropdown { Width = 220 };
+            string sys = L.Resolve("", System.Globalization.CultureInfo.CurrentUICulture.Name);
+            lang.Items.Add(L.F("Same as Windows ({0})", L.NameOf(sys)));
+            foreach (var l in L.Languages) lang.Items.Add(l[1]);
+            int li = Array.FindIndex(L.Languages, l => l[0] == Cfg.Language);
+            lang.SetInitial(string.IsNullOrEmpty(Cfg.Language) || li < 0 ? 0 : li + 1);
+            lang.SelectedIndexChanged += (s, e) =>
+            {
+                string code = lang.SelectedIndex <= 0 ? "" : L.Languages[lang.SelectedIndex - 1][0];
+                BeginInvoke(new Action(() => app.SetLanguage(code)));
+            };
+            page.Add(Card(L.T("Language"), L.T("Changes right away. Missing translations are shown in English."), lang));
+
+            page.Add(Section(L.T("Startup")));
             var startup = new Toggle();
             startup.SetInitial(app.IsStartupEnabled());
             startup.CheckedChanged += (s, e) => app.SetStartup(startup.Checked);
-            page.Add(Card("Start with Windows", "Launch WinZones automatically when you sign in.", startup));
+            page.Add(Card(L.T("Start with Windows"), L.T("Launch WinZones automatically when you sign in."), startup));
 
             var notif = new Toggle();
             notif.SetInitial(Cfg.Notifications);
             notif.CheckedChanged += (s, e) => { Cfg.Notifications = notif.Checked; app.SaveConfig(); };
-            page.Add(Card("Notifications", "Show a short toast, e.g. after auto-arranging.", notif));
+            page.Add(Card(L.T("Notifications"), L.T("Show a short toast, e.g. after auto-arranging."), notif));
 
-            page.Add(Section("Snapping"));
+            page.Add(Section(L.T("Snapping")));
             var mod = new KitDropdown { Width = 180 };
-            mod.Items.AddRange(new[] { "Shift", "Ctrl", "Alt", "None (always)" });
+            mod.Items.AddRange(new[] { "Shift", "Ctrl", "Alt", L.T("None (always)") });
             string cur = (Cfg.DragModifier ?? "Shift").ToLowerInvariant();
             mod.SetInitial(cur == "ctrl" || cur == "control" ? 1 : cur == "alt" ? 2 : cur == "none" ? 3 : 0);
             mod.SelectedIndexChanged += (s, e) => { Cfg.DragModifier = new[] { "Shift", "Ctrl", "Alt", "None" }[mod.SelectedIndex]; app.SaveConfig(); };
-            page.Add(Card("Show zones while dragging when holding", "Hold this key while dragging a window to see the zones.", mod));
+            page.Add(Card(L.T("Show zones while dragging when holding"), L.T("Hold this key while dragging a window to see the zones."), mod));
 
             var gap = new KitStepper { Minimum = 0, Maximum = 64, Suffix = "px" };
             gap.SetInitial(Cfg.Gap);
             gap.ValueChanged += (s, e) => { Cfg.Gap = gap.Value; app.SaveConfig(); };
-            page.Add(Card("Gap between windows", "Space between zones and around the screen edge.", gap));
+            page.Add(Card(L.T("Gap between windows"), L.T("Space between zones and around the screen edge."), gap));
 
-            page.Add(Section("Animation"));
+            page.Add(Section(L.T("Animation")));
             var anim = new Toggle();
             anim.SetInitial(Cfg.Animate);
             var speed = new KitSlider { Minimum = 80, Maximum = 500, Width = 220 };
@@ -764,33 +801,33 @@ namespace WinZones
             anim.CheckedChanged += (s, e) => { Cfg.Animate = anim.Checked; speed.Enabled = anim.Checked; app.SaveConfig(); };
             speed.Enabled = Cfg.Animate;
             speed.ValueChanged += (s, e) => { Cfg.AnimationMs = speed.Value; speedLbl.Text = speed.Value + " ms"; app.SaveConfig(); };
-            page.Add(Card("Smooth animations", "Fade the zone overlay and slide windows into place.", anim));
-            page.Add(Card("Animation duration", "Shorter feels snappier, longer feels smoother.", speed, speedLbl));
+            page.Add(Card(L.T("Smooth animations"), L.T("Fade the zone overlay and slide windows into place."), anim));
+            page.Add(Card(L.T("Animation duration"), L.T("Shorter feels snappier, longer feels smoother."), speed, speedLbl));
 
-            page.Add(Section("Auto-arrange"));
+            page.Add(Section(L.T("Auto-arrange")));
             var minimized = new Toggle();
             minimized.SetInitial(Cfg.IncludeMinimizedInAutoArrange);
             minimized.CheckedChanged += (s, e) => { Cfg.IncludeMinimizedInAutoArrange = minimized.Checked; app.SaveConfig(); };
-            page.Add(Card("Include minimized windows", "Restore minimized windows and arrange them too.", minimized));
+            page.Add(Card(L.T("Include minimized windows"), L.T("Restore minimized windows and arrange them too."), minimized));
 
-            page.Add(Section("Updates"));
+            page.Add(Section(L.T("Updates")));
             if (AppInfo.IsStoreBuild)
             {
                 var store = T.Btn("Microsoft Store", false, Icons.Download);
                 store.Click += (s, e) => { try { Process.Start("ms-windows-store://downloadsandupdates"); } catch { } };
-                page.Add(Card("WinZones " + AppInfo.Version, "Updates are installed automatically by the Microsoft Store.", store));
+                page.Add(Card("WinZones " + AppInfo.Version, L.T("Updates are installed automatically by the Microsoft Store."), store));
             }
             else if (AppInfo.ManagedBy != null)
-                page.Add(Card("WinZones " + AppInfo.Version, "Installed with " + AppInfo.ManagedBy + ". Update it with: scoop update winzones", new Control[0]));
+                page.Add(Card("WinZones " + AppInfo.Version, L.F("Installed with {0}. Update it with: {1}", AppInfo.ManagedBy, "scoop update winzones"), new Control[0]));
             else
                 BuildUpdateCards(page);
 
-            page.Add(Section("Configuration file"));
-            var open = T.Btn("Open");
+            page.Add(Section(L.T("Configuration file")));
+            var open = T.Btn(L.T("Open"));
             open.Click += (s, e) => Process.Start("notepad.exe", "\"" + ConfigStore.Path + "\"");
-            var folder = T.Btn("Show folder");
+            var folder = T.Btn(L.T("Show folder"));
             folder.Click += (s, e) => Process.Start("explorer.exe", "/select,\"" + ConfigStore.Path + "\"");
-            var reload = T.Btn("Reload");
+            var reload = T.Btn(L.T("Reload"));
             reload.Click += (s, e) => { app.ReloadConfig(); Close(); app.ShowSettings("General"); };
             page.Add(Card("winzones.json", ConfigStore.Path, open, folder, reload));
             return page;
@@ -802,15 +839,15 @@ namespace WinZones
             var autoCheck = new Toggle();
             autoCheck.SetInitial(Cfg.CheckForUpdates);
             autoCheck.CheckedChanged += (s, e) => { Cfg.CheckForUpdates = autoCheck.Checked; app.SaveConfig(); app.SetUpdateChecks(autoCheck.Checked); };
-            page.Add(Card("Check for updates automatically", "Looks for a new release on GitHub at startup and every few hours.", autoCheck));
+            page.Add(Card(L.T("Check for updates automatically"), L.T("Looks for a new release on GitHub at startup and every few hours."), autoCheck));
 
             var autoInstall = new Toggle();
             autoInstall.SetInitial(Cfg.AutoInstallUpdates);
             autoInstall.CheckedChanged += (s, e) => { Cfg.AutoInstallUpdates = autoInstall.Checked; app.SaveConfig(); };
-            page.Add(Card("Install updates automatically", "Download, verify and install new versions in the background, then restart.", autoInstall));
+            page.Add(Card(L.T("Install updates automatically"), L.T("Download, verify and install new versions in the background, then restart."), autoInstall));
 
             updateStatus = T.Lbl("", 9f, false, T.Sub);
-            updateButton = T.Btn("Check now", false, Icons.Refresh);
+            updateButton = T.Btn(L.T("Check now"), false, Icons.Refresh);
             updateButton.Click += (s, e) => OnUpdateButton();
             page.Add(Card("WinZones " + AppInfo.Version, null, updateStatus, updateButton));
             ShowUpdateState(app.PendingUpdate, null);
@@ -819,17 +856,20 @@ namespace WinZones
         // ----------------------------------------------------------------- updates (General page)
         private Label updateStatus;
         private KitButton updateButton;
+        private bool checking;
 
         private void OnUpdateButton()
         {
             if (app.PendingUpdate != null) { app.InstallUpdate(false); return; }
-            updateStatus.Text = "Checking...";
+            updateStatus.Text = L.T("Checking...");
+            checking = true;
             updateButton.Enabled = false;
             app.CheckForUpdates(true, (info, error) =>
             {
                 if (IsDisposed) return;
                 updateButton.Enabled = true;
                 ShowUpdateState(info, error);
+                checking = false;
             });
         }
 
@@ -837,17 +877,17 @@ namespace WinZones
         {
             if (info != null)
             {
-                updateStatus.Text = "Version " + info.Version + " is available";
+                updateStatus.Text = L.F("Version {0} is available", info.Version);
                 updateStatus.ForeColor = Theme.Success;
-                updateButton.Text = "Install " + info.Version;
+                updateButton.Text = L.F("Install {0}", info.Version);
                 updateButton.Style = ButtonStyle.Primary;
                 updateButton.IconGlyph = Icons.Download;
             }
             else
             {
-                updateStatus.Text = error ?? (updateStatus.Text == "Checking..." ? "You're up to date" : "");
+                updateStatus.Text = error ?? (checking ? L.T("You're up to date") : "");
                 updateStatus.ForeColor = error != null ? Theme.Warning : T.Sub;
-                updateButton.Text = "Check now";
+                updateButton.Text = L.T("Check now");
                 updateButton.Style = ButtonStyle.Secondary;
                 updateButton.IconGlyph = Icons.Refresh;
             }
@@ -859,10 +899,10 @@ namespace WinZones
             var root = new Panel { BackColor = T.Bg };
 
             var top = new Panel { Dock = DockStyle.Top, Height = 118, BackColor = T.Bg };
-            top.Controls.Add(Title("Layouts", "Each monitor has its own active layout. Hold Shift while dragging a window to use it."));
+            top.Controls.Add(Title(L.T("Layouts"), L.T("Each monitor has its own active layout. Hold Shift while dragging a window to use it.")));
             top.Controls[0].Dock = DockStyle.Top;
             var monRow = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 40, BackColor = T.Bg, WrapContents = false };
-            var ml = T.Lbl("Monitor", 9.75f, false, T.Sub);
+            var ml = T.Lbl(L.T("Monitor"), 9.75f, false, T.Sub);
             ml.Margin = new Padding(0, 6, 10, 0);
             monitorBox = new KitDropdown { Width = 320 };
             monitorBox.SelectedIndexChanged += (s, e) => RefreshLayouts();
@@ -893,13 +933,14 @@ namespace WinZones
             preview = new Canvas { Dock = DockStyle.Fill, BackColor = T.Card };
             preview.Paint += PaintPreview;
             var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 46, BackColor = T.Bg, Padding = new Padding(0, 10, 0, 0), WrapContents = false };
-            var use = T.Btn("Use", true, Icons.Check); use.Margin = new Padding(0); use.Click += (s, e) => UseSelected();
-            var create = T.Btn("New", false, Icons.Add); create.Click += (s, e) => { var m = SelMonitor(); if (m != null) app.OpenEditor(m, null); };
-            var edit = T.Btn("Edit", false, Icons.Edit); edit.Click += (s, e) => { var l = SelLayout(); var m = SelMonitor(); if (l != null && m != null) app.OpenEditor(m, l); };
-            var dup = T.Btn("Duplicate", false, Icons.Copy); dup.Click += (s, e) => DuplicateSelected();
-            var ren = T.Btn("Rename", false, Icons.Rename); ren.Click += (s, e) => RenameSelected();
-            var del = new KitButton("Delete", ButtonStyle.Danger, Icons.Delete) { Margin = new Padding(6, 0, 0, 0) }; del.Click += (s, e) => DeleteSelected();
+            var use = T.Btn(L.T("Use"), true, Icons.Check); use.Margin = new Padding(0); use.Click += (s, e) => UseSelected();
+            var create = T.Btn(L.T("New"), false, Icons.Add); create.Click += (s, e) => { var m = SelMonitor(); if (m != null) app.OpenEditor(m, null); };
+            var edit = T.Btn(L.T("Edit"), false, Icons.Edit); edit.Click += (s, e) => { var l = SelLayout(); var m = SelMonitor(); if (l != null && m != null) app.OpenEditor(m, l); };
+            var dup = T.Btn(L.T("Duplicate"), false, Icons.Copy); dup.Click += (s, e) => DuplicateSelected();
+            var ren = T.Btn(L.T("Rename"), false, Icons.Rename); ren.Click += (s, e) => RenameSelected();
+            var del = new KitButton(L.T("Delete"), ButtonStyle.Danger, Icons.Delete) { Margin = new Padding(6, 0, 0, 0) }; del.Click += (s, e) => DeleteSelected();
             buttons.Controls.AddRange(new Control[] { use, create, edit, dup, ren, del });
+            FitToolbar(buttons, del, ren, dup, edit, create);
             right.Controls.Add(preview);
             right.Controls.Add(buttons);
 
@@ -938,7 +979,7 @@ namespace WinZones
             for (int i = 0; i < monitors.Count; i++)
             {
                 var m = monitors[i];
-                monitorBox.Items.Add("Monitor " + (i + 1) + "  -  " + m.Bounds.Width + " x " + m.Bounds.Height + (m.Primary ? "  (primary)" : ""));
+                monitorBox.Items.Add(L.F("Monitor {0}", i + 1) + "  -  " + m.Bounds.Width + " x " + m.Bounds.Height + (m.Primary ? "  (" + L.T("primary") + ")" : ""));
             }
             int mi = Math.Max(0, monitors.FindIndex(m => m.Device == prevMon));
             if (monitors.Count > 0) monitorBox.SelectedIndex = mi;
@@ -977,7 +1018,7 @@ namespace WinZones
 
             int tx = (int)(tr.Right + 10);
             TextRenderer.DrawText(g, l.Name, T.F(9.75f), new Point(tx, (int)r.Y + 5), Color.White);
-            TextRenderer.DrawText(g, l.Zones.Count + " zones" + (active ? "  -  active" : ""), T.F(8.5f), new Point(tx, (int)r.Y + 23), active ? T.AccentHover : T.Sub);
+            TextRenderer.DrawText(g, L.F("{0} zones", l.Zones.Count) + (active ? "  -  " + L.T("active") : ""),T.F(8.5f), new Point(tx, (int)r.Y + 23), active ? T.AccentHover : T.Sub);
         }
 
         private void PaintPreview(object sender, PaintEventArgs e)
@@ -1015,7 +1056,7 @@ namespace WinZones
                 using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
                     g.DrawString((i + 1).ToString(), f, Brushes.White, r, sf);
             }
-            TextRenderer.DrawText(g, l.Name + (active ? "   (active on this monitor)" : ""), T.F(9f), new Point((int)scr.X, (int)(scr.Bottom + 10)), T.Sub);
+            TextRenderer.DrawText(g, l.Name + (active ? "   (" + L.T("active on this monitor") + ")" : ""),T.F(9f), new Point((int)scr.X, (int)(scr.Bottom + 10)), T.Sub);
         }
 
         private void UseSelected()
@@ -1036,7 +1077,7 @@ namespace WinZones
         {
             var l = SelLayout();
             if (l == null) return;
-            var copy = new Layout { Name = UniqueName(l.Name + " copy"), Zones = l.Zones.Select(z => z.Clone()).ToList() };
+            var copy = new Layout { Name = UniqueName(L.F("{0} copy", l.Name)),Zones = l.Zones.Select(z => z.Clone()).ToList() };
             Cfg.Layouts.Insert(Cfg.Layouts.IndexOf(l) + 1, copy);
             app.SaveConfig();
             layoutList.SelectedIndex = Cfg.Layouts.IndexOf(copy);
@@ -1046,7 +1087,7 @@ namespace WinZones
         {
             var l = SelLayout();
             if (l == null) return;
-            string n = Dialogs.Prompt(this, "Rename layout", "New name:", l.Name);
+            string n = Dialogs.Prompt(this, L.T("Rename layout"), L.T("New name:"), l.Name);
             if (string.IsNullOrWhiteSpace(n) || n.Trim() == l.Name) return;
             n = UniqueName(n.Trim());
             foreach (var k in Cfg.ActiveLayouts.Where(kv => kv.Value == l.Name).Select(kv => kv.Key).ToList()) Cfg.ActiveLayouts[k] = n;
@@ -1058,8 +1099,8 @@ namespace WinZones
         {
             var l = SelLayout();
             if (l == null) return;
-            if (Cfg.Layouts.Count <= 1) { KitDialog.Info(this, "Can't delete", "You need at least one layout."); return; }
-            if (!KitDialog.Confirm(this, "Delete layout?", "'" + l.Name + "' will be removed. This cannot be undone.", "Delete", true)) return;
+            if (Cfg.Layouts.Count <= 1) { KitDialog.Info(this, L.T("Can't delete"), L.T("You need at least one layout.")); return; }
+            if (!KitDialog.Confirm(this, L.T("Delete layout?"), L.F("'{0}' will be removed. This cannot be undone.", l.Name), L.T("Delete"), true)) return;
             Cfg.Layouts.Remove(l);
             foreach (var k in Cfg.ActiveLayouts.Where(kv => kv.Value == l.Name).Select(kv => kv.Key).ToList()) Cfg.ActiveLayouts.Remove(k);
             app.SaveConfig();
@@ -1069,9 +1110,9 @@ namespace WinZones
         private Control BuildShortcuts()
         {
             var page = new Page();
-            page.Add(Title("Shortcuts", "Click a box and press the new key combination. Backspace clears it, Esc cancels."), 8);
+            page.Add(Title(L.T("Shortcuts"), L.T("Click a box and press the new key combination. Backspace clears it, Esc cancels.")), 8);
 
-            var reset = T.Btn("Reset all to defaults");
+            var reset = T.Btn(L.T("Reset all to defaults"));
             reset.Click += (s, e) =>
             {
                 var keep = Cfg.Hotkeys.Where(kv => kv.Key.StartsWith(App.WorkspaceHotkeyPrefix)).ToList();
@@ -1081,15 +1122,15 @@ namespace WinZones
                 foreach (var kv in hotkeyBoxes) { string v; kv.Value.Value = Cfg.Hotkeys.TryGetValue(kv.Key, out v) ? v : ""; }
                 RefreshHotkeyStatus(app.RegisterHotkeys(false));
             };
-            page.Add(Card("Shortcut set", "Some combinations (e.g. Win+L) are reserved by Windows and cannot be used.", reset), 12);
+            page.Add(Card(L.T("Shortcut set"), L.T("Some combinations (e.g. Win+L) are reserved by Windows and cannot be used."), reset), 12);
 
             string lastGroup = null;
             foreach (var action in ActionOrder)
             {
-                string group = action.StartsWith("SnapZone") ? "Snap to a zone"
-                    : action == "AutoArrange" || action == "Undo" ? "Arrange"
-                    : action == "TogglePause" || action == "SaveWorkspace" || action == "ApplyRules" ? "Workspaces, rules and pause"
-                    : "Window";
+                string group = action.StartsWith("SnapZone") ? L.T("Snap to a zone")
+                    : action == "AutoArrange" || action == "Undo" ? L.T("Arrange")
+                    : action == "TogglePause" || action == "SaveWorkspace" || action == "ApplyRules" ? L.T("Workspaces, rules and pause")
+                    : L.T("Window");
                 if (group != lastGroup) { page.Add(Section(group)); lastGroup = group; }
 
                 string a = action;
@@ -1129,7 +1170,7 @@ namespace WinZones
         private void RefreshHotkeyStatus(List<string> failed)
         {
             foreach (var kv in hotkeyStatus)
-                kv.Value.Text = failed.Contains(kv.Key) ? "In use by another app" : "";
+                kv.Value.Text = failed.Contains(kv.Key) ? L.T("In use by another app") : "";
         }
 
         // ----------------------------------------------------------------- Smart arrange
@@ -1138,23 +1179,23 @@ namespace WinZones
             var root = new Panel { BackColor = T.Bg };
 
             var top = new Panel { Dock = DockStyle.Top, Height = 74, BackColor = T.Bg };
-            var title = Title("Smart arrange", "Windows are sorted by app type. Big apps get their own column, the rest are stacked at the sides.");
+            var title = Title(L.T("Smart arrange"), L.T("Windows are sorted by app type. Big apps get their own column, the rest are stacked at the sides."));
             title.Dock = DockStyle.Fill;
             top.Controls.Add(title);
 
             // rules
             var rulesBar = new Panel { Dock = DockStyle.Top, Height = 40, BackColor = T.Bg };
-            var rulesLbl = T.Lbl("App categories", 10.5f, true);
+            var rulesLbl = T.Lbl(L.T("App categories"), 10.5f, true);
             rulesLbl.Location = new Point(0, 10);
             var rulesBtns = new FlowLayoutPanel { Dock = DockStyle.Right, AutoSize = true, WrapContents = false, BackColor = T.Bg, Padding = new Padding(0, 6, 0, 0) };
-            var add = T.Btn("Add rule"); add.Click += (s, e) => { rulesGrid.Rows.Add("new", "Medium", "", "", ""); SyncRules(); };
-            var remove = T.Btn("Remove"); remove.Click += (s, e) => { foreach (DataGridViewRow r in rulesGrid.SelectedRows) if (!r.IsNewRow) rulesGrid.Rows.Remove(r); SyncRules(); };
-            var up = T.Btn("Up"); up.Click += (s, e) => MoveRule(-1);
-            var down = T.Btn("Down"); down.Click += (s, e) => MoveRule(1);
-            var reset = T.Btn("Defaults");
+            var add = T.Btn(L.T("Add category")); add.Click += (s, e) => { rulesGrid.Rows.Add("new", SizeName(2), "", "", ""); SyncRules(); };
+            var remove = T.Btn(L.T("Remove")); remove.Click += (s, e) => { foreach (DataGridViewRow r in rulesGrid.SelectedRows) if (!r.IsNewRow) rulesGrid.Rows.Remove(r); SyncRules(); };
+            var up = IconBtn(Icons.ArrowUp, L.T("Up")); up.Click += (s, e) => MoveRule(-1);
+            var down = IconBtn(Icons.ArrowDown, L.T("Down")); down.Click += (s, e) => MoveRule(1);
+            var reset = T.Btn(L.T("Defaults"));
             reset.Click += (s, e) =>
             {
-                if (!KitDialog.Confirm(this, "Reset rules?", "Replace all app rules with the defaults.", "Reset", true)) return;
+                if (!KitDialog.Confirm(this, L.T("Reset categories?"), L.T("Replace all app categories with the defaults."), L.T("Reset"), true)) return;
                 Cfg.Rules = new Config().Rules; app.SaveConfig(); LoadRules();
             };
             rulesBtns.Controls.AddRange(new Control[] { add, remove, up, down, reset });
@@ -1163,13 +1204,13 @@ namespace WinZones
 
             rulesGrid = new DataGridView { Dock = DockStyle.Top, Height = 250, AllowUserToAddRows = false };
             T.StyleGrid(rulesGrid);
-            rulesGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Category", FillWeight = 14 });
-            var size = new DataGridViewComboBoxColumn { HeaderText = "Size", FillWeight = 12, MinimumWidth = 90, FlatStyle = FlatStyle.Flat, DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing };
-            size.Items.AddRange("Big", "Medium", "Small");
+            rulesGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = L.T("Category"), FillWeight = 14 });
+            var size = new DataGridViewComboBoxColumn { HeaderText = L.T("Size"), FillWeight = 12, MinimumWidth = 90, FlatStyle = FlatStyle.Flat, DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing };
+            size.Items.AddRange(SizeName(3), SizeName(2), SizeName(1));
             rulesGrid.Columns.Add(size);
-            rulesGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Apps (process names, comma separated)", FillWeight = 50 });
-            rulesGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Window classes", FillWeight = 12 });
-            rulesGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Title contains", FillWeight = 13 });
+            rulesGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = L.T("Apps (process names, comma separated)"), FillWeight = 50 });
+            rulesGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = L.T("Window classes"), FillWeight = 12 });
+            rulesGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = L.T("Title contains"), FillWeight = 13 });
             rulesGrid.CellValueChanged += (s, e) => SyncRules();
             rulesGrid.CurrentCellDirtyStateChanged += (s, e) => { if (rulesGrid.IsCurrentCellDirty && rulesGrid.CurrentCell is DataGridViewComboBoxCell) rulesGrid.CommitEdit(DataGridViewDataErrorContexts.Commit); };
             rulesGrid.DataError += (s, e) => { e.ThrowException = false; };
@@ -1177,27 +1218,27 @@ namespace WinZones
 
             // open windows
             var openBar = new Panel { Dock = DockStyle.Top, Height = 48, BackColor = T.Bg };
-            var openLbl = T.Lbl("Open windows", 10.5f, true);
+            var openLbl = T.Lbl(L.T("Open windows"), 10.5f, true);
             openLbl.Location = new Point(0, 18);
             var openBtns = new FlowLayoutPanel { Dock = DockStyle.Right, AutoSize = true, WrapContents = false, BackColor = T.Bg, Padding = new Padding(0, 14, 0, 0) };
-            var refresh = T.Btn("Refresh"); refresh.Click += (s, e) => RefreshOpenWindows();
-            var addApp = T.Btn("Add to rule..."); addApp.Click += (s, e) => AddSelectedAppToRule();
-            var ignoreApp = T.Btn("Ignore app"); ignoreApp.Click += (s, e) => IgnoreSelectedApp();
-            var arrange = T.Btn("Arrange now", true); arrange.Click += (s, e) => app.AutoArrange();
+            var refresh = T.Btn(L.T("Refresh")); refresh.Click += (s, e) => RefreshOpenWindows();
+            var addApp = T.Btn(L.T("Add to category...")); addApp.Click += (s, e) => AddSelectedAppToRule();
+            var ignoreApp = T.Btn(L.T("Ignore app")); ignoreApp.Click += (s, e) => IgnoreSelectedApp();
+            var arrange = T.Btn(L.T("Arrange now"), true); arrange.Click += (s, e) => app.AutoArrange();
             openBtns.Controls.AddRange(new Control[] { refresh, addApp, ignoreApp, arrange });
             openBar.Controls.Add(openLbl);
             openBar.Controls.Add(openBtns);
 
             openGrid = new DataGridView { Dock = DockStyle.Fill, ReadOnly = true, AllowUserToAddRows = false, AllowUserToDeleteRows = false };
             T.StyleGrid(openGrid);
-            openGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "App", FillWeight = 18 });
-            openGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Category", FillWeight = 14 });
-            openGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Size", FillWeight = 10 });
-            openGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Window title", FillWeight = 58 });
+            openGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = L.T("App"), FillWeight = 18 });
+            openGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = L.T("Category"), FillWeight = 14 });
+            openGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = L.T("Size"), FillWeight = 10 });
+            openGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = L.T("Window title"), FillWeight = 58 });
 
             // ignore list
             var ignoreBar = new Panel { Dock = DockStyle.Bottom, Height = 52, BackColor = T.Bg, Padding = new Padding(0, 12, 0, 0) };
-            var ignoreLbl = T.Lbl("Never arrange these apps:", 9.5f, false, T.Sub);
+            var ignoreLbl = T.Lbl(L.T("Never arrange these apps:"), 9.5f, false, T.Sub);
             ignoreLbl.Dock = DockStyle.Left;
             ignoreLbl.AutoSize = true;
             ignoreLbl.Padding = new Padding(0, 6, 10, 0);
@@ -1222,8 +1263,8 @@ namespace WinZones
             return root;
         }
 
-        private static string SizeName(int w) { return w >= 3 ? "Big" : w == 2 ? "Medium" : "Small"; }
-        private static int SizeValue(object o) { string s = o as string; return s == "Big" ? 3 : s == "Small" ? 1 : 2; }
+        private static string SizeName(int w) { return w >= 3 ? L.T("Big") : w == 2 ? L.T("Medium") : L.T("Small"); }
+        private static int SizeValue(object o) { string s = o as string; return s == SizeName(3) ? 3 : s == SizeName(1) ? 1 : 2; }
         private static List<string> SplitList(object o)
         {
             return ((o as string) ?? "").Split(',').Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
@@ -1283,7 +1324,7 @@ namespace WinZones
 
         private string SelectedOpenApp()
         {
-            if (openGrid.SelectedRows.Count == 0) { KitDialog.Info(this, "No window selected", "Select a window in the list first."); return null; }
+            if (openGrid.SelectedRows.Count == 0) { KitDialog.Info(this, L.T("No window selected"), L.T("Select a window in the list first.")); return null; }
             return openGrid.SelectedRows[0].Cells[0].Value as string;
         }
 
@@ -1292,7 +1333,7 @@ namespace WinZones
             string proc = SelectedOpenApp();
             if (string.IsNullOrEmpty(proc)) return;
             string cats = string.Join(", ", Cfg.Rules.Select(r => r.Category).Distinct());
-            string cat = Dialogs.Prompt(this, "Add '" + proc + "' to a rule", "Category (existing: " + cats + "):", "code");
+            string cat = Dialogs.Prompt(this, L.F("Add '{0}' to a category", proc), L.F("Category (existing: {0}):", cats), "code");
             if (string.IsNullOrWhiteSpace(cat)) return;
             cat = cat.Trim();
             foreach (var r in Cfg.Rules) r.Processes.RemoveAll(p => string.Equals(p, proc, StringComparison.OrdinalIgnoreCase));
@@ -1333,6 +1374,42 @@ namespace WinZones
 
         private static Control Gap(int h) { return new Panel { Height = h, BackColor = T.Bg }; }
 
+        private static readonly ToolTip tips = new ToolTip();
+
+        /// When a translated toolbar is wider than its space, the given buttons (in that order) lose their
+        /// label and keep only their icon, with the label as a tooltip; they get it back when there is room.
+        private static void FitToolbar(Control bar, params KitButton[] collapsible)
+        {
+            var full = new Dictionary<KitButton, string>();
+            foreach (var b in collapsible) { full[b] = b.Text; tips.SetToolTip(b, b.Text); b.AccessibleName = b.Text; }
+            bool busy = false;
+            bar.Layout += (s, e) =>
+            {
+                if (busy || bar.Width < 50) return;
+                busy = true;
+                try
+                {
+                    foreach (var b in collapsible) if (b.Text != full[b]) b.Text = full[b];
+                    Func<int> need = () => bar.Controls.Cast<Control>().Where(c => c.Visible).Sum(c => c.Width + c.Margin.Horizontal) + bar.Padding.Horizontal;
+                    foreach (var b in collapsible)
+                    {
+                        if (need() <= bar.Width) break;
+                        b.Text = "";
+                    }
+                }
+                finally { busy = false; }
+            };
+        }
+
+        /// Small icon-only button (with a tooltip) for toolbars that must fit long translations.
+        private static KitButton IconBtn(string glyph, string tooltip)
+        {
+            var b = T.Btn("", false, glyph);
+            b.AccessibleName = tooltip;
+            tips.SetToolTip(b, tooltip);
+            return b;
+        }
+
         private void RefreshOpenApps()
         {
             var apps = Win.Enumerate(Cfg, true).Select(w => w.Process).Where(p => p.Length > 0)
@@ -1357,54 +1434,55 @@ namespace WinZones
         private Control BuildWorkspaces()
         {
             var root = new Panel { BackColor = T.Bg };
-            var title = Title("Workspaces", "Save where all your windows are, then bring it all back with one click or a shortcut.");
+            var title = Title(L.T("Workspaces"), L.T("Save where all your windows are, then bring it all back with one click or a shortcut."));
 
             var bar = new FlowLayoutPanel { Height = 44, BackColor = T.Bg, WrapContents = false };
-            var save = T.Btn("Save current windows", true, Icons.Save);
+            var save = T.Btn(L.T("Save current windows"), true, Icons.Save);
             save.Margin = new Padding(0);
             save.Click += (s, e) => { int n = Cfg.Workspaces.Count; app.PromptSaveWorkspace(); if (Cfg.Workspaces.Count > n) SelectWorkspace(Cfg.Workspaces.Count - 1); };
-            var restore = T.Btn("Restore", false, Icons.Play);
+            var restore = T.Btn(L.T("Restore"), false, Icons.Play);
             restore.Click += (s, e) => { var w = SelWorkspace(); if (w != null) app.RestoreWorkspace(w, false); };
-            var update = T.Btn("Update", false, Icons.Refresh);
+            var update = T.Btn(L.T("Update"), false, Icons.Refresh);
             update.Click += (s, e) =>
             {
                 var w = SelWorkspace();
                 if (w == null) return;
-                if (!KitDialog.Confirm(this, "Update '" + w.Name + "'?", "Replace the saved windows with where your windows are right now.", "Update")) return;
+                if (!KitDialog.Confirm(this, L.F("Update '{0}'?", w.Name), L.T("Replace the saved windows with where your windows are right now."), L.T("Update"))) return;
                 int i = Cfg.Workspaces.IndexOf(w);
                 app.SaveWorkspace(w.Name);
                 SelectWorkspace(i);
             };
-            var ren = T.Btn("Rename", false, Icons.Rename);
+            var ren = T.Btn(L.T("Rename"), false, Icons.Rename);
             ren.Click += (s, e) =>
             {
                 var w = SelWorkspace();
                 if (w == null) return;
-                string n = Dialogs.Prompt(this, "Rename workspace", "New name:", w.Name);
+                string n = Dialogs.Prompt(this, L.T("Rename workspace"), L.T("New name:"), w.Name);
                 if (string.IsNullOrWhiteSpace(n) || n.Trim() == w.Name) return;
                 n = n.Trim();
-                if (Cfg.Workspaces.Any(x => x != w && string.Equals(x.Name, n, StringComparison.OrdinalIgnoreCase))) { KitDialog.Info(this, "Name in use", "Another workspace is already called '" + n + "'."); return; }
+                if (Cfg.Workspaces.Any(x => x != w && string.Equals(x.Name, n, StringComparison.OrdinalIgnoreCase))) { KitDialog.Info(this, L.T("Name in use"), L.F("Another workspace is already called '{0}'.", n)); return; }
                 int i = Cfg.Workspaces.IndexOf(w);
                 app.RenameWorkspace(w, n);
                 SelectWorkspace(i);
             };
-            var del = new KitButton("Delete", ButtonStyle.Danger, Icons.Delete) { Margin = new Padding(6, 0, 0, 0) };
+            var del = new KitButton(L.T("Delete"), ButtonStyle.Danger, Icons.Delete) { Margin = new Padding(6, 0, 0, 0) };
             del.Click += (s, e) =>
             {
                 var w = SelWorkspace();
                 if (w == null) return;
-                if (!KitDialog.Confirm(this, "Delete workspace?", "'" + w.Name + "' will be removed. Your windows stay where they are.", "Delete", true)) return;
+                if (!KitDialog.Confirm(this, L.T("Delete workspace?"), L.F("'{0}' will be removed. Your windows stay where they are.", w.Name), L.T("Delete"), true)) return;
                 app.DeleteWorkspace(w);
             };
             bar.Controls.AddRange(new Control[] { save, restore, update, ren, del });
+            FitToolbar(bar, del, ren, update, restore);
 
             wsGrid = new DataGridView { Height = 150, ReadOnly = true, AllowUserToAddRows = false, AllowUserToDeleteRows = false, MultiSelect = false };
             T.StyleGrid(wsGrid);
-            wsGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Workspace", FillWeight = 30 });
-            wsGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Windows", FillWeight = 12 });
-            wsGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Saved on", FillWeight = 30 });
-            wsGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Shortcut", FillWeight = 16 });
-            wsGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Auto-restore", FillWeight = 12 });
+            wsGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = L.T("Workspace"), FillWeight = 30 });
+            wsGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = L.T("Windows"), FillWeight = 12 });
+            wsGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = L.T("Saved on"), FillWeight = 30 });
+            wsGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = L.T("Shortcut"), FillWeight = 16 });
+            wsGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = L.T("Auto-restore"), FillWeight = 12 });
             wsGrid.SelectionChanged += (s, e) => { if (!loadingWorkspaces) ShowWorkspaceDetail(); };
             wsGrid.CellDoubleClick += (s, e) => { var w = SelWorkspace(); if (w != null && e.RowIndex >= 0) app.RestoreWorkspace(w, false); };
 
@@ -1425,29 +1503,29 @@ namespace WinZones
             wsLaunch = new Toggle();
             wsLaunch.CheckedChanged += (s, e) => { var w = SelWorkspace(); if (w == null || loadingWorkspaces) return; w.LaunchMissing = wsLaunch.Checked; app.SaveConfig(false); };
 
-            var autoCard = Card("Restore automatically", " ", wsAuto);
+            var autoCard = Card(L.T("Restore automatically"), " ", wsAuto);
             wsAutoDesc = (Label)autoCard.Controls[1];
             wsDetail = Stack(
                 Gap(10),
-                Card("Shortcut", "Restore this workspace from anywhere.", wsHotkey), Gap(6),
+                Card(L.T("Shortcut"), L.T("Restore this workspace from anywhere."), wsHotkey), Gap(6),
                 autoCard, Gap(6),
-                Card("Open apps that aren't running", "Starts them and puts their window in its saved place.", wsLaunch), Gap(14));
+                Card(L.T("Open apps that aren't running"), L.T("Starts them and puts their window in its saved place."), wsLaunch), Gap(14));
 
-            var winTitle = T.Lbl("Saved windows", 10.5f, true);
+            var winTitle = T.Lbl(L.T("Saved windows"), 10.5f, true);
             var winBar = new Panel { Dock = DockStyle.Top, Height = 30, BackColor = T.Bg };
             winTitle.Location = new Point(0, 4);
             winBar.Controls.Add(winTitle);
 
             wsWindowsGrid = new DataGridView { Dock = DockStyle.Fill, ReadOnly = true, AllowUserToAddRows = false, AllowUserToDeleteRows = false };
             T.StyleGrid(wsWindowsGrid);
-            wsWindowsGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "App", FillWeight = 16 });
-            wsWindowsGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Window title", FillWeight = 46 });
-            wsWindowsGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Monitor", FillWeight = 11 });
-            wsWindowsGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Position", FillWeight = 16 });
-            wsWindowsGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "State", FillWeight = 11 });
+            wsWindowsGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = L.T("App"), FillWeight = 16 });
+            wsWindowsGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = L.T("Window title"), FillWeight = 46 });
+            wsWindowsGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = L.T("Monitor"), FillWeight = 11 });
+            wsWindowsGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = L.T("Position"), FillWeight = 16 });
+            wsWindowsGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = L.T("State"), FillWeight = 11 });
 
-            wsEmpty = T.Lbl("No workspaces yet. Arrange your windows the way you like them, then click Save current windows.\r\n" +
-                            "Tip: turn on Restore automatically and WinZones puts everything back when you plug in your monitors again.", 9.75f, false, T.Sub);
+            wsEmpty = T.Lbl(L.T("No workspaces yet. Arrange your windows the way you like them, then click Save current windows.") + "\r\n" +
+                            L.T("Tip: turn on Restore automatically and WinZones puts everything back when you plug in your monitors again."), 9.75f, false, T.Sub);
             wsEmpty.AutoSize = false;
             wsEmpty.Dock = DockStyle.Fill;
             wsEmpty.Padding = new Padding(4, 16, 0, 0);
@@ -1481,9 +1559,9 @@ namespace WinZones
 
         private static string DescribeSetup(string setup)
         {
-            if (string.IsNullOrEmpty(setup)) return "unknown monitors";
+            if (string.IsNullOrEmpty(setup)) return L.T("unknown monitors");
             var parts = setup.Split('|').Select(p => p.Split('@')[0].Replace("x", " x ")).ToList();
-            return parts.Count == 1 ? "1 monitor (" + parts[0] + ")" : parts.Count + " monitors (" + string.Join(", ", parts) + ")";
+            return parts.Count == 1 ? L.F("1 monitor ({0})", parts[0]) : L.F("{0} monitors ({1})", parts.Count, string.Join(", ", parts));
         }
 
         private string WorkspaceHotkey(Workspace w)
@@ -1501,7 +1579,7 @@ namespace WinZones
             row.Cells[1].Value = w.Windows.Count;
             row.Cells[2].Value = DescribeSetup(w.MonitorSetup);
             row.Cells[3].Value = WorkspaceHotkey(w);
-            row.Cells[4].Value = w.AutoRestore ? "On" : "";
+            row.Cells[4].Value = w.AutoRestore ? L.T("On") : "";
         }
 
         private void RefreshWorkspaces()
@@ -1512,7 +1590,7 @@ namespace WinZones
             try
             {
                 wsGrid.Rows.Clear();
-                foreach (var w in Cfg.Workspaces) wsGrid.Rows.Add(w.Name, w.Windows.Count, DescribeSetup(w.MonitorSetup), WorkspaceHotkey(w), w.AutoRestore ? "On" : "");
+                foreach (var w in Cfg.Workspaces) wsGrid.Rows.Add(w.Name, w.Windows.Count, DescribeSetup(w.MonitorSetup), WorkspaceHotkey(w), w.AutoRestore ? L.T("On") : "");
                 wsGrid.ClearSelection();
                 if (wsGrid.Rows.Count > 0) wsGrid.Rows[Math.Max(0, Math.Min(sel, wsGrid.Rows.Count - 1))].Selected = true;
             }
@@ -1535,10 +1613,12 @@ namespace WinZones
                 wsAuto.SetInitial(w.AutoRestore);
                 wsLaunch.SetInitial(w.LaunchMissing);
                 string now = Workspaces.MonitorSetup(Monitor.All());
-                wsAutoDesc.Text = "When " + DescribeSetup(w.MonitorSetup) + " are connected again" + (w.MonitorSetup == now ? " (that's your setup now)." : ".");
+                wsAutoDesc.Text = w.MonitorSetup == now ? L.F("When {0} are connected again (that's your setup now).", DescribeSetup(w.MonitorSetup))
+                                                        : L.F("When {0} are connected again.", DescribeSetup(w.MonitorSetup));
                 wsWindowsGrid.Rows.Clear();
                 foreach (var x in w.Windows)
-                    wsWindowsGrid.Rows.Add(x.Process, x.Title, x.Monitor, string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0:0}% x {1:0}%", x.W, x.H), x.State);
+                    wsWindowsGrid.Rows.Add(x.Process, x.Title, x.Monitor, string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0:0}% x {1:0}%", x.W, x.H),
+                                           x.State == "Maximized" ? L.T("Maximized") : x.State == "Minimized" ? L.T("Minimized") : L.T("Normal"));
             }
             finally { loadingWorkspaces = false; }
         }
@@ -1547,44 +1627,47 @@ namespace WinZones
         private DataGridView appRulesGrid;
         private KitDropdown openAppsBox;
         private bool loadingAppRules;
-        private static readonly string[] MonitorChoices = { "Where it opens", "Monitor 1", "Monitor 2", "Monitor 3", "Monitor 4", "Monitor 5", "Monitor 6" };
+        // shown translated; the config keeps the monitor number and the English place ("Zone 1", "Fill", ...)
+        private readonly string[] MonitorChoices = { L.T("Where it opens"), L.F("Monitor {0}", 1), L.F("Monitor {0}", 2), L.F("Monitor {0}", 3), L.F("Monitor {0}", 4), L.F("Monitor {0}", 5), L.F("Monitor {0}", 6) };
+        private readonly string[] PlaceChoices = AppRules.Places.Select(p => p.StartsWith("Zone ") ? L.F("Zone {0}", p.Substring(5)) : L.T(p)).ToArray();
 
         private Control BuildAppRules()
         {
             var root = new Panel { BackColor = T.Bg };
-            var title = Title("App rules", "Always open an app in the same place. A rule is used when a window of that app opens.");
+            var title = Title(L.T("App rules"), L.T("Always open an app in the same place. A rule is used when a window of that app opens."));
 
             var bar = new FlowLayoutPanel { Height = 44, BackColor = T.Bg, WrapContents = false };
-            var lbl = T.Lbl("App", 9.75f, false, T.Sub);
+            var lbl = T.Lbl(L.T("App"), 9.75f, false, T.Sub);
             lbl.Margin = new Padding(0, 8, 10, 0);
             openAppsBox = new KitDropdown { Width = 220 };
-            var add = T.Btn("Add rule", true, Icons.Add);
+            var add = T.Btn(L.T("Add rule"), true, Icons.Add);
             add.Click += (s, e) =>
             {
                 string proc = openAppsBox.SelectedText;
-                appRulesGrid.Rows.Add(true, proc, "", MonitorChoices[0], "Zone 1");
+                appRulesGrid.Rows.Add(true, proc, "", MonitorChoices[0], PlaceChoices[0]);
                 SyncAppRules();
                 appRulesGrid.ClearSelection();
                 appRulesGrid.Rows[appRulesGrid.Rows.Count - 1].Selected = true;
             };
-            var remove = T.Btn("Remove", false, Icons.Delete);
+            var remove = T.Btn(L.T("Remove"), false, Icons.Delete);
             remove.Click += (s, e) => { foreach (DataGridViewRow r in appRulesGrid.SelectedRows) appRulesGrid.Rows.Remove(r); SyncAppRules(); };
-            var up = T.Btn("Up"); up.Click += (s, e) => MoveAppRule(-1);
-            var down = T.Btn("Down"); down.Click += (s, e) => MoveAppRule(1);
-            var apply = T.Btn("Apply to open windows", false, Icons.Play);
+            var up = IconBtn(Icons.ArrowUp, L.T("Up")); up.Click += (s, e) => MoveAppRule(-1);
+            var down = IconBtn(Icons.ArrowDown, L.T("Down")); down.Click += (s, e) => MoveAppRule(1);
+            var apply = T.Btn(L.T("Apply to open windows"), false, Icons.Play);
             apply.Click += (s, e) => app.ApplyRulesToOpenWindows(false);
             bar.Controls.AddRange(new Control[] { lbl, openAppsBox, add, remove, up, down, apply });
+            FitToolbar(bar, apply, remove, add);
 
             appRulesGrid = new DataGridView { Dock = DockStyle.Fill, AllowUserToAddRows = false, MultiSelect = false };
             T.StyleGrid(appRulesGrid);
-            appRulesGrid.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = "On", FillWeight = 7, MinimumWidth = 50 });
-            appRulesGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "App (process name)", FillWeight = 22 });
-            appRulesGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Only if the title contains", FillWeight = 25 });
-            var mon = new DataGridViewComboBoxColumn { HeaderText = "Monitor", FillWeight = 20, FlatStyle = FlatStyle.Flat, DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing };
+            appRulesGrid.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = L.T("On"), FillWeight = 7, MinimumWidth = 50 });
+            appRulesGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = L.T("App (process name)"), FillWeight = 22 });
+            appRulesGrid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = L.T("Only if the title contains"), FillWeight = 25 });
+            var mon = new DataGridViewComboBoxColumn { HeaderText = L.T("Monitor"), FillWeight = 20, FlatStyle = FlatStyle.Flat, DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing };
             mon.Items.AddRange(MonitorChoices);
             appRulesGrid.Columns.Add(mon);
-            var place = new DataGridViewComboBoxColumn { HeaderText = "Place", FillWeight = 18, FlatStyle = FlatStyle.Flat, DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing };
-            place.Items.AddRange(AppRules.Places);
+            var place = new DataGridViewComboBoxColumn { HeaderText = L.T("Place"), FillWeight = 18, FlatStyle = FlatStyle.Flat, DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing };
+            place.Items.AddRange(PlaceChoices);
             appRulesGrid.Columns.Add(place);
             appRulesGrid.CellValueChanged += (s, e) => SyncAppRules();
             appRulesGrid.CurrentCellDirtyStateChanged += (s, e) =>
@@ -1595,8 +1678,8 @@ namespace WinZones
             appRulesGrid.DataError += (s, e) => { e.ThrowException = false; };
             LoadAppRules();
 
-            var note = T.Lbl("Zone numbers follow the layout that's active on that monitor. Rules are checked from the top; the first match wins.\r\n" +
-                             "Each window is placed once, when it opens. While game mode is on, rules wait until you leave the game.", 9f, false, T.Sub);
+            var note = T.Lbl(L.T("Zone numbers follow the layout that's active on that monitor. Rules are checked from the top; the first match wins.") + "\r\n" +
+                             L.T("Each window is placed once, when it opens. While game mode is on, rules wait until you leave the game."), 9f, false, T.Sub);
             note.AutoSize = false;
             note.Dock = DockStyle.Bottom;
             note.Height = 54;
@@ -1615,8 +1698,8 @@ namespace WinZones
             foreach (var r in Cfg.AppRules)
             {
                 string mon = r.Monitor > 0 && r.Monitor < MonitorChoices.Length ? MonitorChoices[r.Monitor] : MonitorChoices[0];
-                string place = AppRules.Places.FirstOrDefault(p => string.Equals(p, r.Place, StringComparison.OrdinalIgnoreCase)) ?? "Zone 1";
-                appRulesGrid.Rows.Add(r.Enabled, r.Process, r.TitleContains, mon, place);
+                int pi = Array.FindIndex(AppRules.Places, p => string.Equals(p, r.Place, StringComparison.OrdinalIgnoreCase));
+                appRulesGrid.Rows.Add(r.Enabled, r.Process, r.TitleContains, mon, PlaceChoices[Math.Max(0, pi)]);
             }
             loadingAppRules = false;
         }
@@ -1632,7 +1715,7 @@ namespace WinZones
                 r.Process = AppRules.Normalize(row.Cells[1].Value as string);
                 r.TitleContains = ((row.Cells[2].Value as string) ?? "").Trim();
                 r.Monitor = Math.Max(0, Array.IndexOf(MonitorChoices, row.Cells[3].Value as string));
-                r.Place = (row.Cells[4].Value as string) ?? "Zone 1";
+                r.Place = AppRules.Places[Math.Max(0, Array.IndexOf(PlaceChoices, row.Cells[4].Value as string))];
                 rules.Add(r);
             }
             Cfg.AppRules = rules;
@@ -1663,28 +1746,28 @@ namespace WinZones
         private Control BuildGameMode()
         {
             var page = new Page();
-            page.Add(Title("Game mode", "WinZones steps aside while you play: no shortcuts, no zone overlay and no pop-ups."), 8);
+            page.Add(Title(L.T("Game mode"), L.T("WinZones steps aside while you play: no shortcuts, no zone overlay and no pop-ups.")), 8);
 
-            page.Add(Section("Right now"));
-            gamePause = T.Btn("Pause now", false, Icons.Pause);
+            page.Add(Section(L.T("Right now")));
+            gamePause = T.Btn(L.T("Pause now"), false, Icons.Pause);
             gamePause.Click += (s, e) => app.SetPaused(!app.ManualPause);
-            var status = Card("Status", " ", gamePause);
+            var status = Card(L.T("Status"), " ", gamePause);
             gameStatus = (Label)status.Controls[1];
             page.Add(status);
 
-            page.Add(Section("Detection"));
+            page.Add(Section(L.T("Detection")));
             var on = new Toggle();
             on.SetInitial(Cfg.GameMode);
             on.CheckedChanged += (s, e) => { Cfg.GameMode = on.Checked; app.SaveConfig(false); app.CheckGameMode(); RefreshGameStatus(); };
-            page.Add(Card("Game mode", "Pause automatically while a game is in front.", on));
+            page.Add(Card(L.T("Game mode"), L.T("Pause automatically while a game is in front."), on));
             var any = new Toggle();
             any.SetInitial(Cfg.GameModeAnyFullscreen);
             any.CheckedChanged += (s, e) => { Cfg.GameModeAnyFullscreen = any.Checked; app.SaveConfig(false); app.CheckGameMode(); };
-            page.Add(Card("Any full-screen app counts", "Full-screen games, videos and presentations. Turn off to use only the list below.", any));
+            page.Add(Card(L.T("Any full-screen app counts"), L.T("Full-screen games, videos and presentations. Turn off to use only the list below."), any));
 
-            page.Add(Section("Always treat these apps as games"));
+            page.Add(Section(L.T("Always treat these apps as games")));
             gameAppsBox = new KitDropdown { Width = 220 };
-            var addGame = T.Btn("Add", false, Icons.Add);
+            var addGame = T.Btn(L.T("Add"), false, Icons.Add);
             addGame.Click += (s, e) =>
             {
                 string p = gameAppsBox.SelectedText;
@@ -1693,7 +1776,7 @@ namespace WinZones
                 app.SaveConfig(false);
                 gameAppsText.Text = string.Join(", ", Cfg.GameApps);
             };
-            page.Add(Card("Add an open app", "For games that run in a window, or anything you don't want interrupted.", gameAppsBox, addGame));
+            page.Add(Card(L.T("Add an open app"), L.T("For games that run in a window, or anything you don't want interrupted."), gameAppsBox, addGame));
             var listCard = new KitCard { Height = 56, Padding = new Padding(16, 11, 16, 11) };
             gameAppsText = new KitTextBox { Dock = DockStyle.Fill, Text = string.Join(", ", Cfg.GameApps) };
             gameAppsText.Leave += (s, e) =>
@@ -1705,14 +1788,14 @@ namespace WinZones
             listCard.Controls.Add(gameAppsText);
             page.Add(listCard);
 
-            page.Add(Section("While paused"));
-            page.Add(Card("Shortcuts and zones", "Every shortcut except pause goes to the game, and Shift+drag shows no zones.", new Control[0]));
-            page.Add(Card("Notifications", "Muted, so nothing pops up over your game.", new Control[0]));
-            page.Add(Card("App rules and workspaces", "They wait, and apply as soon as you leave the game.", new Control[0]));
-            var keys = T.Btn("Shortcuts");
+            page.Add(Section(L.T("While paused")));
+            page.Add(Card(L.T("Shortcuts and zones"), L.T("Every shortcut except pause goes to the game, and Shift+drag shows no zones."), new Control[0]));
+            page.Add(Card(L.T("Notifications"), L.T("Muted, so nothing pops up over your game."), new Control[0]));
+            page.Add(Card(L.T("App rules and workspaces"), L.T("They wait, and apply as soon as you leave the game."), new Control[0]));
+            var keys = T.Btn(L.T("Shortcuts"));
             keys.Click += (s, e) => ShowPage("Shortcuts");
             string hk;
-            page.Add(Card("Pause by hand", "Pause or resume any time with " + (Cfg.Hotkeys.TryGetValue("TogglePause", out hk) && hk.Length > 0 ? hk : "the tray menu") + ".", keys));
+            page.Add(Card(L.T("Pause by hand"), L.F("Pause or resume any time with {0}.", Cfg.Hotkeys.TryGetValue("TogglePause", out hk) && hk.Length > 0 ? hk : L.T("the tray menu")), keys));
             RefreshGameStatus();
             return page;
         }
@@ -1722,20 +1805,20 @@ namespace WinZones
             if (gameStatus == null || IsDisposed) return;
             if (app.ManualPause)
             {
-                gameStatus.Text = "Paused by you. Shortcuts and zones are off.";
+                gameStatus.Text = L.T("Paused by you. Shortcuts and zones are off.");
                 gameStatus.ForeColor = Theme.Warning;
             }
             else if (app.GameReason != null)
             {
-                gameStatus.Text = "Game mode is on: paused while " + app.GameReason + " is in front.";
+                gameStatus.Text = L.F("Game mode is on: paused while {0} is in front.", app.GameReason);
                 gameStatus.ForeColor = Theme.Success;
             }
             else
             {
-                gameStatus.Text = Cfg.GameMode ? "Watching. WinZones pauses as soon as a game is in front." : "Game mode is off. WinZones never pauses on its own.";
+                gameStatus.Text = Cfg.GameMode ? L.T("Watching. WinZones pauses as soon as a game is in front.") : L.T("Game mode is off. WinZones never pauses on its own.");
                 gameStatus.ForeColor = T.Sub;
             }
-            gamePause.Text = app.ManualPause ? "Resume" : "Pause now";
+            gamePause.Text = app.ManualPause ? L.T("Resume") : L.T("Pause now");
             gamePause.IconGlyph = app.ManualPause ? Icons.Play : Icons.Pause;
         }
 
@@ -1743,32 +1826,41 @@ namespace WinZones
         private Control BuildAbout()
         {
             var page = new Page();
-            page.Add(Title("About", null), 8);
+            page.Add(Title(L.T("About"), null), 8);
 
             var hero = new Panel { Height = 150, BackColor = T.Card };
             var logo = new PictureBox { Image = IconArt.Draw(96), SizeMode = PictureBoxSizeMode.Zoom, Size = new Size(96, 96), Location = new Point(28, 27) };
             var name = T.Lbl(AppInfo.Name, 22f, true); name.Location = new Point(144, 28);
-            var tag = T.Lbl(AppInfo.Tagline, 10f, false, T.Sub); tag.Location = new Point(147, 72);
-            var ver = T.Lbl("Version " + AppInfo.Version + "   -   Free and open source (MIT License)", 9.25f, false, T.Sub); ver.Location = new Point(147, 98);
+            var tag = T.Lbl(L.T("Zones, hotkeys and smart auto-arrange for Windows"), 10f, false, T.Sub); tag.Location = new Point(147, 72);
+            var ver = T.Lbl(L.F("Version {0}", AppInfo.Version) + "   -   " + L.T("Free and open source (MIT License)"), 9.25f, false, T.Sub); ver.Location = new Point(147, 98);
             hero.Controls.AddRange(new Control[] { logo, name, tag, ver });
             page.Add(hero, 12);
 
-            var license = T.Btn("View license");
-            license.Click += (s, e) => ShowText("License", AppInfo.License);
-            page.Add(Card("License", "Copyright (c) 2026 " + AppInfo.Author + ". Free to use, modify and share.", license));
+            var news = T.Btn(L.T("What's New"), false, Icons.Sparkle);
+            news.Click += (s, e) => app.ShowWhatsNew();
+            var notes = Changelog.Latest();
+            page.Add(Card(L.T("What's New"), notes != null ? L.F("See what changed in WinZones {0}.", notes.Version) : L.T("See what changed in this version."), news));
+
+            var tour = T.Btn(L.T("Show the tour"), false, Icons.Play);
+            tour.Click += (s, e) => app.ShowOnboarding();
+            page.Add(Card(L.T("Welcome tour"), L.T("The quick introduction you saw the first time you opened WinZones."), tour));
+
+            var license = T.Btn(L.T("View license"));
+            license.Click += (s, e) => ShowText(L.T("License"), AppInfo.License);
+            page.Add(Card(L.T("License"), L.F("Copyright (c) 2026 {0}. Free to use, modify and share.", AppInfo.Author), license));
 
             if (AppInfo.Url.Length > 0)
             {
-                var site = T.Btn("Open");
+                var site = T.Btn(L.T("Open"));
                 site.Click += (s, e) => Process.Start(AppInfo.Url);
-                page.Add(Card("Project page", AppInfo.Url, site));
+                page.Add(Card(L.T("Project page"), AppInfo.Url, site));
             }
 
-            var keys = T.Btn("Shortcuts");
+            var keys = T.Btn(L.T("Shortcuts"));
             keys.Click += (s, e) => ShowPage("Shortcuts");
-            page.Add(Card("Quick start", "Shift+drag a window to snap.  Win+Alt+A arranges everything.  Win+Alt+Z undoes.", keys));
+            page.Add(Card(L.T("Quick start"), L.T("Shift+drag a window to snap.  Win+Alt+A arranges everything.  Win+Alt+Z undoes."), keys));
 
-            page.Add(Card("System", Environment.OSVersion.VersionString + "   -   .NET Framework " + Environment.Version, new Control[0]));
+            page.Add(Card(L.T("System"), Environment.OSVersion.VersionString + "   -   .NET Framework " + Environment.Version, new Control[0]));
             return page;
         }
 

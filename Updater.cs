@@ -119,12 +119,12 @@ namespace WinZones
             using (var z = ZipFile.OpenRead(zip))
             {
                 var entry = z.Entries.FirstOrDefault(e => string.Equals(e.FullName, "WinZones.exe", StringComparison.OrdinalIgnoreCase));
-                if (entry == null) throw new InvalidDataException("The update package does not contain WinZones.exe.");
+                if (entry == null) throw new InvalidDataException(L.T("The update package does not contain WinZones.exe."));
                 entry.ExtractToFile(exe, true);
             }
             var fileVersion = Parse(FileVersionInfo.GetVersionInfo(exe).ProductVersion);
             if (fileVersion == null || fileVersion != info.Version)
-                throw new InvalidDataException("The downloaded app reports version " + fileVersion + ", expected " + info.Version + ".");
+                throw new InvalidDataException(L.F("The downloaded app reports version {0}, expected {1}.", fileVersion, info.Version));
             return exe;
         }
 
@@ -137,9 +137,9 @@ namespace WinZones
             using (var h = SHA256.Create())
                 actual = BitConverter.ToString(h.ComputeHash(s)).Replace("-", "");
             if (expected.Length != 64 || !string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException("Checksum mismatch: the download does not match the release's .sha256 file.");
+                throw new InvalidDataException(L.T("Checksum mismatch: the download does not match the release's .sha256 file."));
             if (!string.IsNullOrEmpty(githubDigest) && !string.Equals(githubDigest, actual, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException("Checksum mismatch: the download does not match GitHub's digest.");
+                throw new InvalidDataException(L.T("Checksum mismatch: the download does not match GitHub's digest."));
         }
 
         /// Replaces `targetExe` (may be the running exe) with `newExe`. Restores the old file if anything fails.

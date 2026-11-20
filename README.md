@@ -68,6 +68,8 @@ Settings open on first launch, and WinZones lives in the system tray next to the
 | ⚡ **Command menu** | Right-click the tray icon for a Raycast-style palette: type to filter layouts and commands, then use the arrow keys and <kbd>Enter</kbd>. |
 | 🎞️ **Smooth, but light** | Windows glide into place, and the overlay fades and cross-fades. Only small layers are redrawn, so it stays smooth even on 5K ultrawides. |
 | ↩️ **Undo** | <kbd>Win</kbd>+<kbd>Alt</kbd>+<kbd>Z</kbd> puts windows back where they were, and you can undo several steps. |
+| 🌍 **Your language** | English, Deutsch, Español, Français, Italiano, Nederlands, Polski, Português (Brasil), Türkçe, Русский, 日本語, 한국어 and 简体中文. WinZones follows your Windows language, or pick one in **Settings → General**; it switches instantly. |
+| 👋 **Welcome tour & What's New** | A short tour on first start (Shift+drag, auto-arrange, layouts, the settings that matter), and after each update a window that shows what changed. |
 | 🔄 **Automatic updates** | WinZones checks GitHub for new releases, verifies every download and updates itself in a few seconds. Your settings are kept. |
 | 🧰 **Scriptable** | `WinZones.exe --workspace "Coding"`, `--arrange`, `--pause`, `--resume`, `--apply-rules`. Great for Stream Deck, AutoHotkey or a desktop shortcut. |
 | 🪶 **Tiny & private** | A single ~380 KB exe with no runtime to download and no telemetry. It only goes online to check GitHub for updates. Portable mode is built in. |
@@ -163,6 +165,12 @@ Run these while WinZones is running (or to start it and do the thing right away)
 ## ❓ FAQ
 
 <details>
+<summary><b>How do I change the language, or help translate?</b></summary>
+
+WinZones uses your Windows display language when it has a translation for it, and English otherwise. To pick another one, open **Settings → General → Language**; the change is instant. Translations live in `lang\<code>.json` (English text → translation). To add or fix one, run `tests\run-tests.bat`, then `obj\tests\WinZones.Tests.exe --dump-keys keys.json` for the full list of strings, edit the JSON file (a new language also needs a line in `L.Languages` in `Lang.cs`) and run the tests again: they check that every string is translated and every `{0}` placeholder is kept.
+</details>
+
+<details>
 <summary><b>What does game mode do, and how does it know I'm playing?</b></summary>
 
 When the window in front is a game, WinZones pauses. It counts as a game when it runs in exclusive full screen, covers the whole monitor without a title bar (borderless full screen), or is on your list in **Settings → Game mode**. While paused, every shortcut except pause is released, Shift+drag shows no zones, notifications are muted, and app rules and automatic workspaces wait until you leave the game. Full-screen videos and presentations count too; turn off **Any full-screen app counts** if you only want your list.
@@ -243,6 +251,8 @@ store.bat           :: -> dist\store\WinZones-<version>.0.msix (Microsoft Store 
 | `Updater.cs` | Over-the-air updates: GitHub release check, verified download, self-replace and restart |
 | `Overlay.cs` | Glass zone overlay: cached layered windows, gliding highlight, window preview |
 | `Ui.cs` | Settings window, icon artwork, app info / version |
+| `Welcome.cs` | What's New window (built from `CHANGELOG.md`) and the first-run tour |
+| `Lang.cs`, `lang/` | Translations: English is in the code, every other language is a `lang\<code>.json` file compiled into the exe |
 | `kit/` | **WinKit**, the reusable UI kit (see below) |
 | `tools/` | README demo generator: animates a mock desktop with the real overlay, smart-arrange and menu code, and writes the GIF |
 | `setup/` | The installer: per-user install, update and uninstall, silent mode (`/S`) for scripts |

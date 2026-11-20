@@ -605,21 +605,21 @@ namespace WinKit
         }
 
         /// Text input. Returns null when cancelled.
-        public static string Prompt(IWin32Window owner, string title, string message, string value, string okText = "Save")
+        public static string Prompt(IWin32Window owner, string title, string message, string value, string okText = null)
         {
-            using (var d = new KitDialog(title, message, Icons.Edit, Theme.Accent2, value ?? "", okText, "Cancel", false))
+            using (var d = new KitDialog(title, message, Icons.Edit, Theme.Accent2, value ?? "", okText ?? KitText.Tr("Save"), KitText.Tr("Cancel"), false))
                 return Run(owner, d) == DialogResult.OK ? d.input.Text : null;
         }
 
-        public static bool Confirm(IWin32Window owner, string title, string message, string okText = "OK", bool danger = false)
+        public static bool Confirm(IWin32Window owner, string title, string message, string okText = null, bool danger = false)
         {
-            using (var d = new KitDialog(title, message, danger ? Icons.Delete : Icons.Info, danger ? Theme.Danger : Theme.Accent2, null, okText, "Cancel", danger))
+            using (var d = new KitDialog(title, message, danger ? Icons.Delete : Icons.Info, danger ? Theme.Danger : Theme.Accent2, null, okText ?? KitText.Tr("OK"), KitText.Tr("Cancel"), danger))
                 return Run(owner, d) == DialogResult.OK;
         }
 
         public static void Info(IWin32Window owner, string title, string message, bool warning = false)
         {
-            using (var d = new KitDialog(title, message, warning ? Icons.Warning : Icons.Info, warning ? Theme.Warning : Theme.Accent2, null, "OK", null, false))
+            using (var d = new KitDialog(title, message, warning ? Icons.Warning : Icons.Info, warning ? Theme.Warning : Theme.Accent2, null, KitText.Tr("OK"), null, false))
                 Run(owner, d);
         }
     }

@@ -235,11 +235,11 @@ namespace WinZones
                     g.DrawImage(s.WinIcon, Rectangle.Round(ir), 0, 0, s.WinIcon.Width, s.WinIcon.Height, GraphicsUnit.Pixel, ia);
                     y += iconSize + 14 * sc + 6 * sc;
                 }
-                string t = string.IsNullOrEmpty(s.WinTitle) ? "Snap here" : s.WinTitle;
+                string t = string.IsNullOrEmpty(s.WinTitle) ? L.T("Snap here") : s.WinTitle;
                 using (var b = new SolidBrush(W(a * 250)))
                     g.DrawString(t, title, b, new RectangleF(r.X + 16 * sc, y, r.Width - 32 * sc, 24 * sc), center);
                 y += 26 * sc;
-                string h = s.SpanCount > 1 ? "Release to span " + s.SpanCount + " zones" : "Release to snap";
+                string h = s.SpanCount > 1 ? L.F("Release to span {0} zones", s.SpanCount) : L.T("Release to snap");
                 using (var b = new SolidBrush(W(a * 185)))
                     g.DrawString(h, hint, b, new RectangleF(r.X, y, r.Width, 20 * sc), center);
             }
@@ -290,7 +290,7 @@ namespace WinZones
             using (var f = new Font("Segoe UI Semibold", 15f * sc, GraphicsUnit.Pixel))
             using (var b = new SolidBrush(W(250)))
             using (var sf = new StringFormat { Alignment = StringAlignment.Near, LineAlignment = StringAlignment.Center, FormatFlags = StringFormatFlags.NoWrap, Trimming = StringTrimming.EllipsisCharacter })
-                g.DrawString(k > 0.5f ? "Release to arrange everything" : "Auto-arrange all windows", f, b, tr, sf);
+                g.DrawString(k > 0.5f ? L.T("Release to arrange everything") : L.T("Auto-arrange all windows"), f, b, tr, sf);
         }
 
         private static void PaintHints(Graphics g, OverlayState s)
@@ -314,7 +314,7 @@ namespace WinZones
                     {
                         g.DrawString(s.LayoutName, f, Brushes.White, new RectangleF(r.X, r.Y + 10 * sc, r.Width, 44 * sc), sf);
                         using (var b = new SolidBrush(W(150)))
-                            g.DrawString("Win+Alt+L for the next layout", f2, b, new RectangleF(r.X, r.Y + 54 * sc, r.Width, 26 * sc), sf);
+                            g.DrawString(L.F("{0} for the next layout", "Win+Alt+L"), f2, b, new RectangleF(r.X, r.Y + 54 * sc, r.Width, 26 * sc), sf);
                     }
                 }
                 return;
@@ -324,8 +324,8 @@ namespace WinZones
             var parts = new List<KeyValuePair<string, bool>>
             {
                 new KeyValuePair<string, bool>(s.LayoutName, false),
-                new KeyValuePair<string, bool>("Ctrl", true), new KeyValuePair<string, bool>("span zones", false),
-                new KeyValuePair<string, bool>("Win+Alt+L", true), new KeyValuePair<string, bool>("next layout", false),
+                new KeyValuePair<string, bool>("Ctrl", true), new KeyValuePair<string, bool>(L.T("span zones"), false),
+                new KeyValuePair<string, bool>("Win+Alt+L", true), new KeyValuePair<string, bool>(L.T("next layout"), false),
             };
             using (var f = new Font("Segoe UI", 12.5f * sc, GraphicsUnit.Pixel))
             using (var fk = new Font("Segoe UI Semibold", 11.5f * sc, GraphicsUnit.Pixel))

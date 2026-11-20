@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.0 — languages, what's new and a welcome tour
+
+_2026-11-21_
+
+- **Languages:** WinZones now speaks Deutsch, Español, Français, Italiano, Nederlands, Polski, Português (Brasil), Türkçe, Русский, 日本語, 한국어 and 简体中文. It follows your Windows language, or pick one in **Settings → General → Language**. The change is instant.
+- **What's New:** after an update, a short window shows what changed. Open it again any time from the tray menu or **Settings → About**.
+- **Welcome tour:** the first time you start WinZones, a quick tour shows Shift+drag, auto-arrange and layouts, and lets you choose the most useful settings.
+- **Fixes:** long text in Settings wraps instead of running under the buttons, and the Smart arrange page now says **Add category**, so it isn't mixed up with app rules.
+
 ## 1.3.0 — workspaces, app rules and game mode
 
 - **Workspaces:** save where every window is and bring it all back with one click, a shortcut or `--workspace "Name"`. Missing apps can be opened for you, and a workspace can restore itself when its monitors are connected again (great for docking a laptop).

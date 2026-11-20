@@ -123,6 +123,13 @@ namespace WinKit
         public static readonly string Download = ((char)0xE896).ToString(), Update = ((char)0xE777).ToString();
         public static readonly string Game = ((char)0xE7FC).ToString(), Pause = ((char)0xE769).ToString(), Play = ((char)0xE768).ToString();
         public static readonly string Apps = ((char)0xE71D).ToString(), Save = ((char)0xE74E).ToString(), Pin = ((char)0xE718).ToString();
+        public static readonly string ArrowUp = ((char)0xE74A).ToString(), ArrowDown = ((char)0xE74B).ToString();
+    }
+
+    /// The kit's own words ("Cancel", "Search commands...") go through this, so apps can translate them.
+    public static class KitText
+    {
+        public static Func<string, string> Tr = s => s;
     }
 
     // =====================================================================================

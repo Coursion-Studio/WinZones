@@ -93,7 +93,7 @@ namespace WinZones
 
             int state;
             if (SHQueryUserNotificationState(out state) == 0 && (state == QUNS_RUNNING_D3D_FULL_SCREEN || state == QUNS_PRESENTATION_MODE))
-                return proc.Length > 0 ? proc : "full-screen app";
+                return proc.Length > 0 ? proc : L.T("full-screen app");
 
             // borderless full-screen: no title bar and covering the whole monitor (taskbar included)
             var mon = Monitor.OfWindow(h);
@@ -101,7 +101,7 @@ namespace WinZones
             N.RECT r;
             if (!N.GetWindowRect(h, out r)) return null;
             int style = N.GetWindowLong(h, N.GWL_STYLE);
-            if (IsFullscreen(r.ToRect(), mon.Bounds, style)) return proc.Length > 0 ? proc : "full-screen app";
+            if (IsFullscreen(r.ToRect(), mon.Bounds, style)) return proc.Length > 0 ? proc : L.T("full-screen app");
             return null;
         }
 
@@ -118,7 +118,7 @@ namespace WinZones
     // =====================================================================================
     internal static class AppRules
     {
-        public static readonly string[] Places = { "Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5", "Zone 6", "Zone 7", "Zone 8", "Zone 9", "Fill", "Center", "Maximize" };
+        public static readonly string[] Places = { "Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5", "Zone 6", "Zone 7", "Zone 8", "Zone 9", L.N("Fill"), L.N("Center"), L.N("Maximize") };
 
         public static string Normalize(string process)
         {

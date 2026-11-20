@@ -9,7 +9,10 @@ if not exist "%CSC%" (
   exit /b 1
 )
 set "REFS=/r:System.dll /r:System.Core.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Web.Extensions.dll /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll"
-set "SRC=WinZones.cs Features.cs Ui.cs Overlay.cs Updater.cs kit\Kit.Theme.cs kit\Kit.Popup.cs kit\Kit.Controls.cs"
+set "SRC=WinZones.cs Features.cs Ui.cs Overlay.cs Updater.cs Lang.cs Welcome.cs kit\Kit.Theme.cs kit\Kit.Popup.cs kit\Kit.Controls.cs"
+rem translations (lang\*.json) and CHANGELOG.md (for What's New) are compiled into the exe
+set "RES=/resource:CHANGELOG.md,WinZones.CHANGELOG.md"
+for %%f in (lang\*.json) do call set "RES=%%RES%% /resource:lang\%%~nxf,WinZones.lang.%%~nxf"
 
 rem 1) generate the app icon from the artwork in Ui.cs (only if it does not exist yet)
 if not exist WinZones.ico (
@@ -22,7 +25,7 @@ if not exist WinZones.ico (
 
 rem 2) build the app with icon + manifest (DPI awareness, Windows 10/11)
 "%CSC%" /nologo /target:winexe /optimize+ /platform:anycpu /out:WinZones.exe ^
-  /win32icon:WinZones.ico /win32manifest:app.manifest /nowarn:162 %REFS% %SRC% || goto :fail
+  /win32icon:WinZones.ico /win32manifest:app.manifest /nowarn:162 %REFS% %RES% %SRC% || goto :fail
 echo Built WinZones.exe
 exit /b 0
 

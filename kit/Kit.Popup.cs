@@ -55,7 +55,7 @@ namespace WinKit
         private RectangleF panel, listArea;
 
         public bool ShowSearch = true;
-        public string Placeholder = "Search commands...";
+        public string Placeholder = KitText.Tr("Search commands...");
         public string FooterText;
         public Image FooterIcon;
         public int MinWidth = 340;
@@ -357,7 +357,7 @@ namespace WinKit
             var state = g.Save();
             g.SetClip(listArea);
             if (view.Count == 0)
-                Gfx.Text(g, "No results for “" + filter + "”", Theme.UiPx(13f * sc), new RectangleF(x0, listArea.Y + 6 * sc, w, 44 * sc), Theme.TextMuted, StringAlignment.Center);
+                Gfx.Text(g, string.Format(KitText.Tr("No results for “{0}”"), filter), Theme.UiPx(13f * sc), new RectangleF(x0, listArea.Y + 6 * sc, w, 44 * sc), Theme.TextMuted, StringAlignment.Center);
 
             if (sel >= 0 && hlY >= 0)
             {
@@ -434,11 +434,12 @@ namespace WinKit
                 Gfx.Text(g, FooterText, Theme.SemiboldPx(12f * sc), new RectangleF(fx, fr.Y, 160 * sc, fr.Height), Theme.TextSub);
                 float kx = fr.Right - 12 * sc;
                 kx -= Gfx.KeycapsWidth(g, "esc", sc); Gfx.Keycaps(g, "esc", kx, fr.Y + fr.Height / 2, sc);
-                kx -= 6 * sc + g.MeasureString("Close", Theme.UiPx(11.5f * sc)).Width;
-                Gfx.Text(g, "Close", Theme.UiPx(11.5f * sc), new RectangleF(kx, fr.Y, 60 * sc, fr.Height), Theme.TextMuted);
+                string closeT = KitText.Tr("Close"), runT = KitText.Tr("Run");
+                kx -= 6 * sc + g.MeasureString(closeT, Theme.UiPx(11.5f * sc)).Width;
+                Gfx.Text(g, closeT, Theme.UiPx(11.5f * sc), new RectangleF(kx, fr.Y, 120 * sc, fr.Height), Theme.TextMuted);
                 kx -= 14 * sc + Gfx.KeycapsWidth(g, "Enter", sc); Gfx.Keycaps(g, "Enter", kx, fr.Y + fr.Height / 2, sc);
-                kx -= 6 * sc + g.MeasureString("Run", Theme.UiPx(11.5f * sc)).Width;
-                Gfx.Text(g, "Run", Theme.UiPx(11.5f * sc), new RectangleF(kx, fr.Y, 60 * sc, fr.Height), Theme.TextMuted);
+                kx -= 6 * sc + g.MeasureString(runT, Theme.UiPx(11.5f * sc)).Width;
+                Gfx.Text(g, runT, Theme.UiPx(11.5f * sc), new RectangleF(kx, fr.Y, 120 * sc, fr.Height), Theme.TextMuted);
             }
         }
 

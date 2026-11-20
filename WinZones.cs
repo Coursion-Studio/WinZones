@@ -230,9 +230,14 @@ namespace WinZones
         public List<string> GameApps { get; set; }       // always pause while these apps are in front
         public List<AppRule> AppRules { get; set; }
         public List<Workspace> Workspaces { get; set; }
+        public string Language { get; set; }             // "" = same as Windows, else "de", "pt-BR", ...
+        public bool OnboardingDone { get; set; }          // the first-run tour was finished or skipped
+        public string LastSeenVersion { get; set; }       // What's New was shown for this version
 
         public Config()
         {
+            Language = "";
+            LastSeenVersion = "";
             GameMode = true;
             GameModeAnyFullscreen = true;
             GameApps = new List<string>();
@@ -929,7 +934,7 @@ namespace WinZones
             this.mon = mon;
             this.onSave = onSave;
             zones = start == null ? new List<Zone>() : start.Zones.Select(z => z.Clone()).ToList();
-            startName = start == null ? "My layout" : start.Name;
+            startName = start == null ? L.T("My layout") : start.Name;
 
             FormBorderStyle = FormBorderStyle.None;
             StartPosition = FormStartPosition.Manual;
@@ -940,7 +945,7 @@ namespace WinZones
             BackColor = Color.FromArgb(14, 16, 22);
             Opacity = 0.92;
             Cursor = Cursors.Cross;
-            Text = "WinZones layout editor";
+            Text = L.T("WinZones layout editor");
         }
 
         protected override void OnShown(EventArgs e)
@@ -1044,8 +1049,8 @@ namespace WinZones
 
         private void SaveAndClose()
         {
-            if (zones.Count == 0) { WinKit.KitDialog.Info(this, "Nothing to save", "Draw at least one zone first."); return; }
-            string name = Dialogs.Prompt(this, "Save layout", "Layout name (same name overwrites):", startName);
+            if (zones.Count == 0) { WinKit.KitDialog.Info(this, L.T("Nothing to save"), L.T("Draw at least one zone first.")); return; }
+            string name = Dialogs.Prompt(this, L.T("Save layout"), L.T("Layout name (same name overwrites):"), startName);
             if (string.IsNullOrWhiteSpace(name)) return;
             var sorted = zones.OrderBy(z => Math.Round(z.X, 1)).ThenBy(z => z.Y).ToList();
             onSave(name.Trim(), sorted);
@@ -1108,10 +1113,10 @@ namespace WinZones
                 if (showHelp)
                 {
                     string help =
-                        "LAYOUT EDITOR  -  " + startName + "\n" +
-                        "Drag: draw zone    Right-click / Del: remove zone    V / H: split zone under mouse (columns / rows)\n" +
-                        "1-6: start with N equal columns    G: grid snap (now " + snaps[snapIdx] + "%)    Shift: 1% snap    Backspace: undo    C: clear\n" +
-                        "Enter: save    Esc: cancel    F1: hide this help";
+                        L.T("LAYOUT EDITOR").ToUpper(L.Culture) + "  -  " + startName + "\n" +
+                        L.T("Drag: draw zone    Right-click / Del: remove zone    V / H: split zone under mouse (columns / rows)") + "\n" +
+                        L.F("1-6: start with N equal columns    G: grid snap (now {0}%)    Shift: 1% snap    Backspace: undo    C: clear", snaps[snapIdx]) + "\n" +
+                        L.T("Enter: save    Esc: cancel    F1: hide this help");
                     var size = g.MeasureString(help, small);
                     var hr = new RectangleF((W - size.Width) / 2 - 16 * sc, H - size.Height - 40 * sc, size.Width + 32 * sc, size.Height + 20 * sc);
                     using (var path = Geo.Rounded(hr, 10 * sc))
@@ -1244,6 +1249,7 @@ namespace WinZones
             string err;
             bool firstRun;
             cfg = ConfigStore.Load(out err, out firstRun);
+            L.Use(cfg.Language);
 
             tray = new NotifyIcon();
             float dpi;
@@ -1274,14 +1280,92 @@ namespace WinZones
             updateTimer.Tick += (s, e) => { updateTimer.Interval = 6 * 60 * 60 * 1000; CheckForUpdates(false, null); };
             SetUpdateChecks(cfg.CheckForUpdates);
 
+            // configs from before 1.4 don't know about the tour: their owners have seen WinZones already
+            if (!firstRun && string.IsNullOrEmpty(cfg.LastSeenVersion) && !cfg.OnboardingDone) cfg.OnboardingDone = true;
+
             if (err != null)
-                WinKit.KitDialog.Info(null, "Settings file could not be read", "Defaults are used for now. A copy was saved as winzones.json.bad.\n\n" + err, true);
+                WinKit.KitDialog.Info(null, L.T("Settings file could not be read"), L.T("Defaults are used for now. A copy was saved as winzones.json.bad.") + "\n\n" + err, true);
+            else if (!cfg.OnboardingDone)
+                ShowOnboarding();
+            else if (WhatsNewDue)
+                ShowWhatsNewWhenFree();
             else if (updatedFrom != null)
-                WinKit.Toast.Show("Updated to " + AppInfo.Version, "WinZones was updated from " + updatedFrom + ". Your settings were kept.", WinKit.ToastKind.Success);
-            else if (firstRun)
-                ShowSettings("General");
+                WinKit.Toast.Show(L.F("Updated to {0}", AppInfo.Version), L.F("WinZones was updated from {0}. Your settings were kept.", updatedFrom), WinKit.ToastKind.Success);
             else
-                Notify("WinZones is running. Shift+drag a window to snap, Win+Alt+A to auto-arrange. Click the tray icon for settings.");
+                Notify(L.T("WinZones is running. Shift+drag a window to snap, Win+Alt+A to auto-arrange. Click the tray icon for settings."));
+        }
+
+        // ----------------------------------------------------------------- language, tour and what's new
+        private OnboardingWindow onboarding;
+        private WhatsNewWindow whatsNew;
+
+        /// Switches the UI language right away: open windows are rebuilt in the new language.
+        public void SetLanguage(string code)
+        {
+            cfg.Language = code ?? "";
+            SaveConfig(false);
+            L.Use(cfg.Language);
+            bool settingsOpen = settings != null && !settings.IsDisposed;
+            if (settingsOpen) { var at = settings.Location; settings.Close(); ShowSettings("General"); settings.Location = at; }
+            if (whatsNew != null && !whatsNew.IsDisposed) { whatsNew.Close(); ShowWhatsNew(); }
+        }
+
+        /// The first-run tour (also reachable from Settings > About).
+        public void ShowOnboarding()
+        {
+            if (onboarding != null && !onboarding.IsDisposed) { onboarding.Activate(); return; }
+            onboarding = new OnboardingWindow(this);
+            onboarding.FormClosed += (s, e) =>
+            {
+                onboarding = null;
+                cfg.OnboardingDone = true;
+                cfg.LastSeenVersion = AppInfo.Version;   // a new install has nothing "new" to show
+                SaveConfig(false);
+            };
+            onboarding.Show();
+            onboarding.Activate();
+            N.SetForegroundWindow(onboarding.Handle);
+        }
+
+        /// True right after an update to a version the user hasn't seen the notes of yet.
+        public bool WhatsNewDue
+        {
+            get
+            {
+                if (!cfg.OnboardingDone || cfg.LastSeenVersion == AppInfo.Version) return false;
+                var notes = Changelog.Latest();
+                return notes != null && notes.Version == AppInfo.Version;   // guards a stale CHANGELOG in dev builds
+            }
+        }
+
+        public void ShowWhatsNew()
+        {
+            var notes = Changelog.Latest();
+            if (notes == null) return;
+            if (whatsNew != null && !whatsNew.IsDisposed) { whatsNew.Activate(); return; }
+            whatsNew = new WhatsNewWindow(notes);
+            whatsNew.FormClosed += (s, e) =>
+            {
+                whatsNew = null;
+                cfg.LastSeenVersion = AppInfo.Version;
+                SaveConfig(false);
+            };
+            whatsNew.Show();
+            whatsNew.Activate();
+            N.SetForegroundWindow(whatsNew.Handle);
+        }
+
+        /// Shows What's New once no game is in front (never pops up over a game).
+        private void ShowWhatsNewWhenFree()
+        {
+            var t = new System.Windows.Forms.Timer { Interval = 2500 };
+            t.Tick += (s, e) =>
+            {
+                if (IsPaused) { t.Interval = 30000; return; }
+                t.Stop(); t.Dispose();
+                if (WhatsNewDue) ShowWhatsNew();
+            };
+            t.Start();
         }
 
         // ----------------------------------------------------------------- over-the-air updates
@@ -1311,7 +1395,7 @@ namespace WinZones
                 UpdateInfo info = null;
                 string error = null;
                 try { info = Updater.CheckLatest(Updater.Current); }
-                catch (Exception ex) { error = "Could not check for updates: " + ex.Message; }
+                catch (Exception ex) { error = L.F("Could not check for updates: {0}", ex.Message); }
                 ui.Post(__ =>
                 {
                     updateBusy = false;
@@ -1321,7 +1405,7 @@ namespace WinZones
                         PendingUpdate = info;
                         if (!manual && cfg.AutoInstallUpdates) InstallUpdate(true);
                         else if (!manual && isNew && cfg.Notifications)
-                            WinKit.Toast.Show("Update available: " + info.Version, "Right-click the tray icon and choose Update to install it.", WinKit.ToastKind.Info);
+                            WinKit.Toast.Show(L.F("Update available: {0}", info.Version), L.T("Right-click the tray icon and choose Update to install it."), WinKit.ToastKind.Info);
                     }
                     if (done != null) done(info, error);
                 }, null);
@@ -1336,12 +1420,12 @@ namespace WinZones
             if (!silent)
             {
                 string summary = Updater.Summary(info.Notes);
-                if (!WinKit.KitDialog.Confirm(null, "Update to " + info.Version + "?",
-                        (summary.Length > 0 ? summary + "\n\n" : "") + "WinZones will restart in a moment. Your settings are kept.", "Update now"))
+                if (!WinKit.KitDialog.Confirm(null, L.F("Update to {0}?", info.Version),
+                        (summary.Length > 0 ? summary + "\n\n" : "") + L.T("WinZones will restart in a moment. Your settings are kept."), L.T("Update now")))
                     return;
             }
             updateBusy = true;
-            if (!silent) WinKit.Toast.Show("Downloading " + info.Version + "...", "This only takes a few seconds.", WinKit.ToastKind.Info);
+            if (!silent) WinKit.Toast.Show(L.F("Downloading {0}...", info.Version), L.T("This only takes a few seconds."), WinKit.ToastKind.Info);
             var ui = SynchronizationContext.Current;
             ThreadPool.QueueUserWorkItem(_ =>
             {
@@ -1351,7 +1435,7 @@ namespace WinZones
                 ui.Post(__ =>
                 {
                     updateBusy = false;
-                    if (error != null) { WinKit.Toast.Show("Update failed", error, WinKit.ToastKind.Warning); return; }
+                    if (error != null) { WinKit.Toast.Show(L.T("Update failed"), error, WinKit.ToastKind.Warning); return; }
                     try
                     {
                         Updater.Apply(newExe, Application.ExecutablePath);
@@ -1359,12 +1443,12 @@ namespace WinZones
                     catch (UnauthorizedAccessException)
                     {
                         // e.g. installed under Program Files: let the user update manually
-                        WinKit.KitDialog.Info(null, "Can't update in this folder",
-                            "WinZones doesn't have permission to replace itself here. The download page will open so you can update manually.", true);
+                        WinKit.KitDialog.Info(null, L.T("Can't update in this folder"),
+                            L.T("WinZones doesn't have permission to replace itself here. The download page will open so you can update manually."), true);
                         try { Process.Start(info.PageUrl); } catch { }
                         return;
                     }
-                    catch (Exception ex) { WinKit.Toast.Show("Update failed", ex.Message, WinKit.ToastKind.Warning); return; }
+                    catch (Exception ex) { WinKit.Toast.Show(L.T("Update failed"), ex.Message, WinKit.ToastKind.Warning); return; }
                     Updater.Restart(Application.ExecutablePath, AppInfo.Version);
                     ExitThread();
                 }, null);
@@ -1426,7 +1510,7 @@ namespace WinZones
         public void SaveConfig(bool notifyListeners = true)
         {
             try { ConfigStore.Save(cfg); }
-            catch (Exception ex) { Notify("Could not save config: " + ex.Message); }
+            catch (Exception ex) { Notify(L.F("Could not save config: {0}", ex.Message), WinKit.ToastKind.Warning); }
             if (notifyListeners && ConfigChanged != null) ConfigChanged();
         }
 
@@ -1455,8 +1539,8 @@ namespace WinZones
                 else failed.Add(kv.Key);
             }
             if (notify && failed.Count > 0)
-                Notify("Some shortcuts are taken by another app: " +
-                       string.Join(", ", failed.Select(a => cfg.Hotkeys[a])) + ". Click the tray icon > Shortcuts to change them.");
+                Notify(L.F("Some shortcuts are taken by another app: {0}. Click the tray icon > Shortcuts to change them.",
+                       string.Join(", ", failed.Select(a => cfg.Hotkeys[a]))), WinKit.ToastKind.Warning);
             return failed;
         }
 
@@ -1488,7 +1572,7 @@ namespace WinZones
             string action;
             if (!hotkeyActions.TryGetValue(id, out action)) return;
             try { RunAction(action); }
-            catch (Exception ex) { Notify("Error: " + ex.Message); }
+            catch (Exception ex) { Notify(L.F("Error: {0}", ex.Message), WinKit.ToastKind.Warning); }
         }
 
         private void RunAction(string action)
@@ -1632,7 +1716,7 @@ namespace WinZones
 
         private void Undo()
         {
-            if (undo.Count == 0) { Notify("Nothing to undo."); return; }
+            if (undo.Count == 0) { Notify(L.T("Nothing to undo.")); return; }
             var snap = undo[undo.Count - 1];
             undo.RemoveAt(undo.Count - 1);
             var slides = new List<KeyValuePair<IntPtr, Rectangle>>();
@@ -1653,7 +1737,7 @@ namespace WinZones
             PushUndo(new[] { h });
             Animator.Run(new List<KeyValuePair<IntPtr, Rectangle>> { new KeyValuePair<IntPtr, Rectangle>(h, r) }, AnimMs, fails =>
             {
-                if (fails > 0) Notify("That window refused to move (if it runs as administrator, run WinZones as administrator too).");
+                if (fails > 0) Notify(L.T("That window refused to move (if it runs as administrator, run WinZones as administrator too)."), WinKit.ToastKind.Warning);
             });
         }
 
@@ -1662,7 +1746,7 @@ namespace WinZones
         {
             IntPtr fg = N.GetForegroundWindow();
             var wins = Win.EnumerateForArrange(cfg);
-            if (wins.Count == 0) { Notify("No windows to arrange."); return; }
+            if (wins.Count == 0) { Notify(L.T("No windows to arrange.")); return; }
             var mons = Monitor.All();
             PushUndo(wins.Select(w => w.Handle));
             var plan = SmartArranger.Plan(wins, mons, fg, cfg.Gap);
@@ -1670,9 +1754,9 @@ namespace WinZones
             int monCount = mons.Count;
             Animator.Run(moves, AnimMs, fails =>
             {
-                string msg = "Arranged " + (moves.Count - fails) + " window(s) on " + monCount + " monitor(s). Win+Alt+Z to undo.";
-                if (fails > 0) msg += " " + fails + " window(s) could not be moved (admin windows need WinZones to run as admin).";
-                Notify(msg);
+                string msg = L.F("Arranged {0} window(s) on {1} monitor(s). {2} to undo.", moves.Count - fails, monCount, Hotkey("Undo") ?? L.T("Undo last move"));
+                if (fails > 0) msg += " " + L.F("{0} window(s) could not be moved (admin windows need WinZones to run as admin).", fails);
+                Notify(msg, fails > 0 ? WinKit.ToastKind.Warning : WinKit.ToastKind.Success);
             });
         }
 
@@ -1709,7 +1793,7 @@ namespace WinZones
                     {
                         var ws = cfg.Workspaces.FirstOrDefault(w => string.Equals(w.Name, arg, StringComparison.OrdinalIgnoreCase));
                         if (ws != null) RestoreWorkspace(ws, false);
-                        else Notify("There's no workspace called '" + arg + "'.");
+                        else Notify(L.F("There's no workspace called '{0}'.", arg), WinKit.ToastKind.Warning);
                         break;
                     }
                 case "save-workspace": if (arg.Length > 0) SaveWorkspace(arg); else PromptSaveWorkspace(); break;
@@ -1725,7 +1809,7 @@ namespace WinZones
         public void RunCommandLater(string cmd, int ms)
         {
             var t = new System.Windows.Forms.Timer { Interval = ms };
-            t.Tick += (s, e) => { t.Stop(); t.Dispose(); try { RunCommand(cmd); } catch (Exception ex) { Notify("Error: " + ex.Message); } };
+            t.Tick += (s, e) => { t.Stop(); t.Dispose(); try { RunCommand(cmd); } catch (Exception ex) { Notify(L.F("Error: {0}", ex.Message), WinKit.ToastKind.Warning); } };
             t.Start();
         }
 
@@ -1733,7 +1817,7 @@ namespace WinZones
         {
             invoker.CreateControl();
             commands = new CommandWindow();
-            commands.Received += cmd => { try { RunCommand(cmd); } catch (Exception ex) { Notify("Error: " + ex.Message); } };
+            commands.Received += cmd => { try { RunCommand(cmd); } catch (Exception ex) { Notify(L.F("Error: {0}", ex.Message), WinKit.ToastKind.Warning); } };
             fgProc = (hook, evt, h, idObject, idChild, thread, time) => CheckGameMode();
             fgHook = N.SetWinEventHook(N.EVENT_SYSTEM_FOREGROUND, N.EVENT_SYSTEM_FOREGROUND, IntPtr.Zero, fgProc, 0, 0, N.WINEVENT_OUTOFCONTEXT);
             showProc = OnObjectShow;
@@ -1776,8 +1860,8 @@ namespace WinZones
             if (manualPause == on) return;
             manualPause = on;
             OnPauseStateChanged();
-            Notify(on ? "WinZones is paused. Shortcuts and zones are off until you resume it (" + (Hotkey("TogglePause") ?? "tray menu") + ")."
-                      : "WinZones is back on.");
+            Notify(on ? L.F("WinZones is paused. Shortcuts and zones are off until you resume it ({0}).", Hotkey("TogglePause") ?? L.T("tray menu"))
+                      : L.T("WinZones is back on."));
         }
 
         private void OnPauseStateChanged()
@@ -1795,7 +1879,7 @@ namespace WinZones
             if (trayNormal == null) trayNormal = tray.Icon;
             if (IsPaused && trayPaused == null) trayPaused = MakePausedIcon(trayNormal.Width);
             tray.Icon = IsPaused ? trayPaused : trayNormal;
-            string t = !IsPaused ? AppInfo.Name : AppInfo.Name + (manualPause ? " - paused" : " - paused while " + gameReason + " is in front");
+            string t = !IsPaused ? AppInfo.Name : AppInfo.Name + " - " + (manualPause ? L.T("paused") : L.F("paused while {0} is in front", gameReason));
             tray.Text = t.Length > 63 ? t.Substring(0, 63) : t;
         }
 
@@ -1925,10 +2009,10 @@ namespace WinZones
                 else moves.Add(new KeyValuePair<IntPtr, Rectangle>(w.Handle, r.Value));
             }
             int n = moves.Count + maxes.Count;
-            if (n == 0) { if (!quiet) Notify("No open windows match your app rules."); return 0; }
+            if (n == 0) { if (!quiet) Notify(L.T("No open windows match your app rules.")); return 0; }
             PushUndo(moves.Select(m => m.Key).Concat(maxes.Select(m => m.Key)));
             foreach (var m in maxes) MaximizeOn(m.Key, m.Value);
-            Animator.Run(moves, AnimMs, fails => { if (!quiet) Notify("Placed " + (n - fails) + " window(s) by your app rules."); });
+            Animator.Run(moves, AnimMs, fails => { if (!quiet) Notify(L.F("Placed {0} window(s) by your app rules.", n - fails), WinKit.ToastKind.Success); });
             return n;
         }
 
@@ -1947,13 +2031,13 @@ namespace WinZones
             }
             else cfg.Workspaces.Add(ws);
             SaveConfig();
-            Notify("Workspace '" + ws.Name + "' saved with " + ws.Windows.Count + " window(s).");
+            Notify(L.F("Workspace '{0}' saved with {1} window(s).", ws.Name, ws.Windows.Count), WinKit.ToastKind.Success);
             return ws;
         }
 
         public void PromptSaveWorkspace()
         {
-            string name = Dialogs.Prompt(null, "Save workspace", "Saves where every open window is. Use an existing name to update it.", "Workspace " + (cfg.Workspaces.Count + 1));
+            string name = Dialogs.Prompt(null, L.T("Save workspace"), L.T("Saves where every open window is. Use an existing name to update it."), L.F("Workspace {0}", cfg.Workspaces.Count + 1));
             if (!string.IsNullOrWhiteSpace(name)) SaveWorkspace(name.Trim());
         }
 
@@ -2017,10 +2101,9 @@ namespace WinZones
             {
                 foreach (var st in states)
                     if (N.IsWindow(st.Key)) N.ShowWindow(st.Key, st.Value == "Maximized" ? N.SW_SHOWMAXIMIZED : N.SW_SHOWMINNOACTIVE);
-                string msg = "Restored " + (count - fails) + " window(s) of '" + ws.Name + "'";
-                if (launched > 0) msg += " and opened " + launched + " app(s)";
-                if (count == 0 && launched == 0) msg = "None of the apps in '" + ws.Name + "' are open.";
-                Notify(msg + (msg.EndsWith(".") ? "" : "."));
+                if (count == 0 && launched == 0) { Notify(L.F("None of the apps in '{0}' are open.", ws.Name)); return; }
+                Notify(launched > 0 ? L.F("Restored {0} window(s) of '{1}' and opened {2} app(s).", count - fails, ws.Name, launched)
+                                    : L.F("Restored {0} window(s) of '{1}'.", count - fails, ws.Name), WinKit.ToastKind.Success);
             });
         }
 
@@ -2135,7 +2218,7 @@ namespace WinZones
         private void Defer(Action a)
         {
             var t = new System.Windows.Forms.Timer { Interval = 40 };
-            t.Tick += (s, e) => { t.Stop(); t.Dispose(); try { a(); } catch (Exception ex) { Notify("Error: " + ex.Message); } };
+            t.Tick += (s, e) => { t.Stop(); t.Dispose(); try { a(); } catch (Exception ex) { Notify(L.F("Error: {0}", ex.Message), WinKit.ToastKind.Warning); } };
             t.Start();
         }
 
@@ -2150,7 +2233,7 @@ namespace WinZones
                 if (existing != null) existing.Zones = zones;
                 else cfg.Layouts.Add(new Layout { Name = name, Zones = zones });
                 SetLayout(m, existing != null ? existing.Name : name, false);
-                Notify("Layout '" + name + "' saved and activated on this monitor.");
+                Notify(L.F("Layout '{0}' saved and activated on this monitor.", name), WinKit.ToastKind.Success);
             });
             editor.FormClosed += (s, e) => { editor = null; };
             editor.Show();
@@ -2163,33 +2246,33 @@ namespace WinZones
             var items = new List<WinKit.MenuEntry>();
             if (PendingUpdate != null)
             {
-                items.Add(WinKit.MenuEntry.Header("Update available"));
-                var up = WinKit.MenuEntry.Item("Update to " + PendingUpdate.Version, WinKit.Icons.Download, () => InstallUpdate(false));
+                items.Add(WinKit.MenuEntry.Header(L.T("Update available")));
+                var up = WinKit.MenuEntry.Item(L.F("Update to {0}", PendingUpdate.Version), WinKit.Icons.Download, () => InstallUpdate(false));
                 up.IconColor = WinKit.Theme.Success;
                 up.Keywords = "update upgrade new version";
                 items.Add(up);
             }
             if (IsPaused)
             {
-                items.Add(WinKit.MenuEntry.Header(manualPause ? "Paused" : "Game mode"));
-                var resume = WinKit.MenuEntry.Item(manualPause ? "Resume WinZones" : "Paused while " + gameReason + " is in front",
+                items.Add(WinKit.MenuEntry.Header(manualPause ? L.T("Paused") : L.T("Game mode")));
+                var resume = WinKit.MenuEntry.Item(manualPause ? L.T("Resume WinZones") : L.F("Paused while {0} is in front", gameReason),
                     WinKit.Icons.Play, () => { if (manualPause) SetPaused(false); else ShowSettings("Game mode"); }, manualPause ? Hotkey("TogglePause") : null);
                 resume.IconColor = WinKit.Theme.Warning;
                 resume.Keywords = "pause resume game mode";
                 items.Add(resume);
             }
-            items.Add(WinKit.MenuEntry.Header("Actions"));
-            items.Add(WinKit.MenuEntry.Item("Auto-arrange all windows", WinKit.Icons.Sparkle, AutoArrange, Hotkey("AutoArrange")));
-            items.Add(WinKit.MenuEntry.Item("Undo last move", WinKit.Icons.Undo, Undo, Hotkey("Undo")));
+            items.Add(WinKit.MenuEntry.Header(L.T("Actions")));
+            items.Add(WinKit.MenuEntry.Item(L.T("Auto-arrange all windows"), WinKit.Icons.Sparkle, AutoArrange, Hotkey("AutoArrange")));
+            items.Add(WinKit.MenuEntry.Item(L.T("Undo last move"), WinKit.Icons.Undo, Undo, Hotkey("Undo")));
             if (cfg.AppRules.Any(r => r.Enabled))
             {
-                var ar = WinKit.MenuEntry.Item("Apply app rules now", WinKit.Icons.Apps, () => ApplyRulesToOpenWindows(false), Hotkey("ApplyRules"));
+                var ar = WinKit.MenuEntry.Item(L.T("Apply app rules now"), WinKit.Icons.Apps, () => ApplyRulesToOpenWindows(false), Hotkey("ApplyRules"));
                 ar.Keywords = "app rules place";
                 items.Add(ar);
             }
-            items.Add(WinKit.MenuEntry.Item("Settings", WinKit.Icons.Settings, () => ShowSettings(null)));
+            items.Add(WinKit.MenuEntry.Item(L.T("Settings"), WinKit.Icons.Settings, () => ShowSettings(null)));
 
-            items.Add(WinKit.MenuEntry.Header("Workspaces"));
+            items.Add(WinKit.MenuEntry.Header(L.T("Workspaces")));
             foreach (var w in cfg.Workspaces)
             {
                 var ws = w;
@@ -2197,7 +2280,7 @@ namespace WinZones
                 e.Keywords = "workspace restore " + string.Join(" ", ws.Windows.Select(x => x.Process).Distinct());
                 items.Add(e);
             }
-            var save = WinKit.MenuEntry.Item("Save current windows as workspace", WinKit.Icons.Save, PromptSaveWorkspace, Hotkey("SaveWorkspace"));
+            var save = WinKit.MenuEntry.Item(L.T("Save current windows as workspace"), WinKit.Icons.Save, PromptSaveWorkspace, Hotkey("SaveWorkspace"));
             save.Keywords = "workspace save new snapshot";
             items.Add(save);
 
@@ -2205,7 +2288,7 @@ namespace WinZones
             for (int mi = 0; mi < mons.Count; mi++)
             {
                 var m = mons[mi];
-                items.Add(WinKit.MenuEntry.Header(mons.Count == 1 ? "Layout" : "Layout · Monitor " + (mi + 1)));
+                items.Add(WinKit.MenuEntry.Header(mons.Count == 1 ? L.T("Layout") : L.T("Layout") + " · " + L.F("Monitor {0}", mi + 1)));
                 var active = LayoutFor(m);
                 foreach (var l in cfg.Layouts)
                 {
@@ -2216,19 +2299,22 @@ namespace WinZones
                     e.Keywords = "layout " + lay.Zones.Count + " zones";
                     items.Add(e);
                 }
-                items.Add(WinKit.MenuEntry.Item("Edit current layout", WinKit.Icons.Edit, () => OpenEditor(m, LayoutFor(m)), Hotkey("EditLayout")));
-                items.Add(WinKit.MenuEntry.Item("New layout", WinKit.Icons.Add, () => OpenEditor(m, null)));
+                items.Add(WinKit.MenuEntry.Item(L.T("Edit current layout"), WinKit.Icons.Edit, () => OpenEditor(m, LayoutFor(m)), Hotkey("EditLayout")));
+                items.Add(WinKit.MenuEntry.Item(L.T("New layout"), WinKit.Icons.Add, () => OpenEditor(m, null)));
             }
 
-            items.Add(WinKit.MenuEntry.Header("Preferences"));
-            items.Add(WinKit.MenuEntry.Toggle("Start with Windows", WinKit.Icons.Startup, IsStartupEnabled(), on => SetStartup(on)));
-            items.Add(WinKit.MenuEntry.Toggle("Animations", WinKit.Icons.Sparkle, cfg.Animate, on => { cfg.Animate = on; SaveConfig(); }));
-            items.Add(WinKit.MenuEntry.Toggle("Game mode", WinKit.Icons.Game, cfg.GameMode, on => { cfg.GameMode = on; SaveConfig(); CheckGameMode(); }));
-            items.Add(WinKit.MenuEntry.Toggle("Pause WinZones", WinKit.Icons.Pause, manualPause, on => SetPaused(on)));
-            items.Add(WinKit.MenuEntry.Item("Shortcuts", WinKit.Icons.Keyboard, () => ShowSettings("Shortcuts")));
-            items.Add(WinKit.MenuEntry.Item("About " + AppInfo.Name, WinKit.Icons.Info, () => ShowSettings("About")));
+            items.Add(WinKit.MenuEntry.Header(L.T("Preferences")));
+            items.Add(WinKit.MenuEntry.Toggle(L.T("Start with Windows"), WinKit.Icons.Startup, IsStartupEnabled(), on => SetStartup(on)));
+            items.Add(WinKit.MenuEntry.Toggle(L.T("Animations"), WinKit.Icons.Sparkle, cfg.Animate, on => { cfg.Animate = on; SaveConfig(); }));
+            items.Add(WinKit.MenuEntry.Toggle(L.T("Game mode"), WinKit.Icons.Game, cfg.GameMode, on => { cfg.GameMode = on; SaveConfig(); CheckGameMode(); }));
+            items.Add(WinKit.MenuEntry.Toggle(L.T("Pause WinZones"), WinKit.Icons.Pause, manualPause, on => SetPaused(on)));
+            items.Add(WinKit.MenuEntry.Item(L.T("Shortcuts"), WinKit.Icons.Keyboard, () => ShowSettings("Shortcuts")));
+            var news = WinKit.MenuEntry.Item(L.T("What's New"), WinKit.Icons.Sparkle, ShowWhatsNew);
+            news.Keywords = "whats new release notes changelog";
+            items.Add(news);
+            items.Add(WinKit.MenuEntry.Item(L.F("About {0}", AppInfo.Name), WinKit.Icons.Info, () => ShowSettings("About")));
             items.Add(WinKit.MenuEntry.Separator());
-            var quit = WinKit.MenuEntry.Item("Quit " + AppInfo.Name, WinKit.Icons.Power, ExitThread);
+            var quit = WinKit.MenuEntry.Item(L.F("Quit {0}", AppInfo.Name), WinKit.Icons.Power, ExitThread);
             items.Add(quit);
             return items;
         }
@@ -2240,7 +2326,7 @@ namespace WinZones
             {
                 FooterText = AppInfo.Name,
                 FooterIcon = IconArt.Draw(32),
-                Placeholder = "Search layouts and commands...",
+                Placeholder = L.T("Search layouts and commands..."),
             };
             menu.ShowAt(Cursor.Position);
         }
@@ -2253,9 +2339,9 @@ namespace WinZones
 
         private void DeleteLayout(Monitor m)
         {
-            if (cfg.Layouts.Count <= 1) { Notify("You need at least one layout."); return; }
+            if (cfg.Layouts.Count <= 1) { Notify(L.T("You need at least one layout.")); return; }
             var l = LayoutFor(m);
-            if (!WinKit.KitDialog.Confirm(null, "Delete layout?", "'" + l.Name + "' will be removed. This cannot be undone.", "Delete", true)) return;
+            if (!WinKit.KitDialog.Confirm(null, L.T("Delete layout?"), L.F("'{0}' will be removed. This cannot be undone.", l.Name), L.T("Delete"), true)) return;
             cfg.Layouts.Remove(l);
             foreach (var k in cfg.ActiveLayouts.Where(kv => kv.Value == l.Name).Select(kv => kv.Key).ToList()) cfg.ActiveLayouts.Remove(k);
             SaveConfig();
@@ -2265,11 +2351,12 @@ namespace WinZones
         {
             string err;
             var c = ConfigStore.Load(out err);
-            if (err != null) { WinKit.KitDialog.Info(null, "Settings file has an error", "Keeping the previous settings.\n\n" + err, true); return; }
+            if (err != null) { WinKit.KitDialog.Info(null, L.T("Settings file has an error"), L.T("Keeping the previous settings.") + "\n\n" + err, true); return; }
             cfg = c;
+            L.Use(cfg.Language);
             RegisterHotkeys(true);
             if (ConfigChanged != null) ConfigChanged();
-            Notify("Config reloaded.");
+            Notify(L.T("Config reloaded."), WinKit.ToastKind.Success);
         }
 
         public bool IsStartupEnabled()
@@ -2288,7 +2375,7 @@ namespace WinZones
             if (!StoreStartup.SetEnabled(on) && on)
             {
                 // the user switched it off in Windows Settings; only they can turn it back on there
-                WinKit.Toast.Show("Turn it on in Windows Settings", "Settings > Apps > Startup > WinZones. Windows only lets you re-enable it there.", WinKit.ToastKind.Warning);
+                WinKit.Toast.Show(L.T("Turn it on in Windows Settings"), L.T("Settings > Apps > Startup > WinZones. Windows only lets you re-enable it there."), WinKit.ToastKind.Warning);
                 try { Process.Start("ms-settings:startupapps"); } catch { }
             }
 #else
@@ -2302,15 +2389,10 @@ namespace WinZones
         }
 
         /// Shows a small toast (bottom of the screen) instead of a Windows balloon tip.
-        private void Notify(string text)
+        private void Notify(string text, WinKit.ToastKind kind = WinKit.ToastKind.Info)
         {
             if (!cfg.Notifications || gameReason != null) return;   // never pop up over a game
-            string lower = text.ToLowerInvariant();
-            var kind = lower.Contains("could not") || lower.Contains("taken") || lower.Contains("refused") || lower.Contains("error")
-                ? WinKit.ToastKind.Warning
-                : lower.StartsWith("arranged") || lower.StartsWith("restored") || lower.StartsWith("placed") || lower.Contains("saved") || lower.Contains("reloaded") ? WinKit.ToastKind.Success
-                : WinKit.ToastKind.Info;
-            string title = kind == WinKit.ToastKind.Success ? "Done" : kind == WinKit.ToastKind.Warning ? "Heads up" : AppInfo.Name;
+            string title = kind == WinKit.ToastKind.Success ? L.T("Done") : kind == WinKit.ToastKind.Warning ? L.T("Heads up") : AppInfo.Name;
             WinKit.Toast.Show(title, text, kind);
         }
 
