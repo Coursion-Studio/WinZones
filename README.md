@@ -225,4 +225,5 @@ Issues and pull requests are welcome! Good first contributions include new defau
 ## 📄 License
 
 [MIT](LICENSE) © 2026 kuraydev. You're free to use, modify and share WinZones, including commercially. It uses only Windows and .NET Framework, with no third-party code.
-nPrivacy: WinZones collects no data. See the [privacy policy](PRIVACY.md).
+
+Privacy: WinZones collects no data. See the [privacy policy](PRIVACY.md).
