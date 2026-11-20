@@ -179,6 +179,7 @@ cd WinZones
 build.bat          :: -> WinZones.exe
 release.bat        :: -> dist\WinZones-<version>-win.zip (+ .sha256), the files the in-app updater downloads
 tools\make-demo.bat :: -> docs\demo.gif + docs\shot-*.png (README media, rendered from the app's own drawing code)
+store.bat          :: -> dist\store\WinZones-<version>.0.msix (Microsoft Store package; needs the Windows SDK)
 ```
 
 > **Releasing:** tag releases `vX.Y.Z` and keep the asset names `release.bat` creates (`WinZones-X.Y.Z-win.zip` + `.sha256`). The in-app updater looks for exactly those, and it skips drafts and pre-releases.
@@ -191,6 +192,7 @@ tools\make-demo.bat :: -> docs\demo.gif + docs\shot-*.png (README media, rendere
 | `Ui.cs` | Settings window, icon artwork, app info / version |
 | `kit/` | **WinKit**, the reusable UI kit (see below) |
 | `tools/` | README demo generator: animates a mock desktop with the real overlay, smart-arrange and menu code, and writes the GIF |
+| `store/` | Microsoft Store packaging: manifest template, package identity, Store startup task, listing texts |
 | `app.manifest` | Per-monitor DPI awareness, Windows 10/11 |
 
 ### 🎨 WinKit: reuse the look in your own apps
@@ -223,3 +225,4 @@ Issues and pull requests are welcome! Good first contributions include new defau
 ## 📄 License
 
 [MIT](LICENSE) © 2026 kuraydev. You're free to use, modify and share WinZones, including commercially. It uses only Windows and .NET Framework, with no third-party code.
+nPrivacy: WinZones collects no data. See the [privacy policy](PRIVACY.md).

@@ -1208,7 +1208,7 @@ namespace WinZones
         public void SetUpdateChecks(bool on)
         {
             updateTimer.Stop();
-            if (!on) return;
+            if (!on || AppInfo.IsStoreBuild) return;   // Store builds are updated by the Microsoft Store
             updateTimer.Interval = 15 * 1000;
             updateTimer.Start();
         }
@@ -1216,6 +1216,7 @@ namespace WinZones
         /// Checks GitHub for a newer release. `done` (UI thread) gets the update or null, and an error message or null.
         public void CheckForUpdates(bool manual, Action<UpdateInfo, string> done)
         {
+            if (AppInfo.IsStoreBuild) { if (done != null) done(null, null); return; }
             if (updateBusy) { if (done != null) done(PendingUpdate, null); return; }
             updateBusy = true;
             var ui = SynchronizationContext.Current;
@@ -1757,18 +1758,31 @@ namespace WinZones
 
         public bool IsStartupEnabled()
         {
+#if STORE
+            return StoreStartup.IsEnabled();
+#else
             using (var k = Registry.CurrentUser.OpenSubKey(RunKey))
                 return k != null && k.GetValue(AppInfo.Name) != null;
+#endif
         }
 
         public void SetStartup(bool on)
         {
+#if STORE
+            if (!StoreStartup.SetEnabled(on) && on)
+            {
+                // the user switched it off in Windows Settings; only they can turn it back on there
+                WinKit.Toast.Show("Turn it on in Windows Settings", "Settings > Apps > Startup > WinZones. Windows only lets you re-enable it there.", WinKit.ToastKind.Warning);
+                try { Process.Start("ms-settings:startupapps"); } catch { }
+            }
+#else
             using (var k = Registry.CurrentUser.OpenSubKey(RunKey, true))
             {
                 if (k == null) return;
                 if (on) k.SetValue(AppInfo.Name, "\"" + Application.ExecutablePath + "\"");
                 else k.DeleteValue(AppInfo.Name, false);
             }
+#endif
         }
 
         /// Shows a small toast (bottom of the screen) instead of a Windows balloon tip.
@@ -1804,6 +1818,8 @@ namespace WinZones
         {
             // build helper: WinZones.exe --make-icon <path.ico>
             if (args.Length == 2 && args[0] == "--make-icon") { IconArt.WriteIco(args[1]); return; }
+            // store helper: WinZones.exe --make-store-assets <folder>  (MSIX logos)
+            if (args.Length == 2 && args[0] == "--make-store-assets") { IconArt.WriteStoreAssets(args[1]); return; }
 
             // started by the updater: WinZones.exe --after-update <previous version>
             string updatedFrom = args.Length == 2 && args[0] == "--after-update" ? args[1] : null;

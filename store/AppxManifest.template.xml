@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- WinZones MSIX manifest. store.bat fills in $NAME$, $PUBLISHER$, $PUBLISHER_DISPLAY$ and $VERSION$. -->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap desktop rescap">
+
+  <Identity Name="$NAME$" Publisher="$PUBLISHER$" Version="$VERSION$" ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>WinZones</DisplayName>
+    <PublisherDisplayName>$PUBLISHER_DISPLAY$</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <Description>Zones, hotkeys and smart auto-arrange for Windows</Description>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.18362.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application Id="WinZones" Executable="WinZones.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="WinZones"
+        Description="Zones, hotkeys and smart auto-arrange for Windows"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" ShortName="WinZones" />
+        <uap:SplashScreen Image="Assets\SplashScreen.png" />
+      </uap:VisualElements>
+      <Extensions>
+        <!-- "Start with Windows" (toggled from Settings via the StartupTask API) -->
+        <desktop:Extension Category="windows.startupTask" Executable="WinZones.exe" EntryPoint="Windows.FullTrustApplication">
+          <desktop:StartupTask TaskId="WinZonesStartup" Enabled="false" DisplayName="WinZones" />
+        </desktop:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <!-- required for every packaged desktop (Win32) app: hotkeys, window events, moving other windows -->
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

@@ -1,0 +1,6 @@
+# Microsoft Store package identity.
+# Copy these three values from Partner Center: your app > Product management > Product identity.
+# Until they are filled in, store.bat builds a TEST package (fine for checking, rejected by the Store).
+Name=CoursionStudio.WinZones.Test
+Publisher=CN=00000000-0000-0000-0000-000000000000
+PublisherDisplayName=Coursion Studio

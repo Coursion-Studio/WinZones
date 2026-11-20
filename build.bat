@@ -22,7 +22,7 @@ if not exist WinZones.ico (
 
 rem 2) build the app with icon + manifest (DPI awareness, Windows 10/11)
 "%CSC%" /nologo /target:winexe /optimize+ /platform:anycpu /out:WinZones.exe ^
-  /win32icon:WinZones.ico /win32manifest:app.manifest %REFS% %SRC% || goto :fail
+  /win32icon:WinZones.ico /win32manifest:app.manifest /nowarn:162 %REFS% %SRC% || goto :fail
 echo Built WinZones.exe
 exit /b 0
 

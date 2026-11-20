@@ -26,6 +26,11 @@ namespace WinZones
         public const string Author = "kuraydev";
         public const string Url = "https://github.com/Coursion-Studio/WinZones";
         public const string Tagline = "Zones, hotkeys and smart auto-arrange for Windows";
+#if STORE
+        public const bool IsStoreBuild = true;    // Microsoft Store (MSIX) build: no in-app updater
+#else
+        public const bool IsStoreBuild = false;
+#endif
 
         public const string License =
             "MIT License\r\n\r\n" +
@@ -180,6 +185,38 @@ namespace WinZones
         }
 
         /// Writes a multi-resolution .ico (32-bit DIB frames + PNG for 256px).
+        /// Writes the MSIX logo set (scale / targetsize qualified; resolved via resources.pri).
+        public static void WriteStoreAssets(string dir)
+        {
+            Directory.CreateDirectory(dir);
+            Action<string, int, int, float> tile = (name, w, h, iconFrac) =>
+            {
+                using (var bmp = new Bitmap(w, h, PixelFormat.Format32bppArgb))
+                using (var g = Graphics.FromImage(bmp))
+                {
+                    g.Clear(Color.Transparent);
+                    g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                    int s = (int)Math.Round(Math.Min(w, h) * iconFrac);
+                    using (var icon = Draw(s)) g.DrawImage(icon, (w - s) / 2, (h - s) / 2, s, s);
+                    bmp.Save(Path.Combine(dir, name), ImageFormat.Png);
+                }
+            };
+            foreach (var sc in new[] { 100, 125, 150, 200, 400 })
+            {
+                tile("Square44x44Logo.scale-" + sc + ".png", 44 * sc / 100, 44 * sc / 100, 1f);
+                tile("Square150x150Logo.scale-" + sc + ".png", 150 * sc / 100, 150 * sc / 100, 0.62f);
+                tile("Wide310x150Logo.scale-" + sc + ".png", 310 * sc / 100, 150 * sc / 100, 0.62f);
+                tile("StoreLogo.scale-" + sc + ".png", 50 * sc / 100, 50 * sc / 100, 1f);
+                tile("SplashScreen.scale-" + sc + ".png", 620 * sc / 100, 300 * sc / 100, 0.5f);
+            }
+            foreach (var ts in new[] { 16, 20, 24, 30, 32, 36, 40, 48, 60, 64, 72, 80, 96, 256 })
+            {
+                tile("Square44x44Logo.targetsize-" + ts + ".png", ts, ts, 1f);
+                tile("Square44x44Logo.targetsize-" + ts + "_altform-unplated.png", ts, ts, 1f);
+                tile("Square44x44Logo.targetsize-" + ts + "_altform-lightunplated.png", ts, ts, 1f);
+            }
+        }
+
         public static void WriteIco(string path)
         {
             int[] sizes = { 16, 20, 24, 32, 40, 48, 64, 128, 256 };
@@ -711,6 +748,29 @@ namespace WinZones
             page.Add(Card("Include minimized windows", "Restore minimized windows and arrange them too.", minimized));
 
             page.Add(Section("Updates"));
+            if (AppInfo.IsStoreBuild)
+            {
+                var store = T.Btn("Microsoft Store", false, Icons.Download);
+                store.Click += (s, e) => { try { Process.Start("ms-windows-store://downloadsandupdates"); } catch { } };
+                page.Add(Card("WinZones " + AppInfo.Version, "Updates are installed automatically by the Microsoft Store.", store));
+            }
+            else
+                BuildUpdateCards(page);
+
+            page.Add(Section("Configuration file"));
+            var open = T.Btn("Open");
+            open.Click += (s, e) => Process.Start("notepad.exe", "\"" + ConfigStore.Path + "\"");
+            var folder = T.Btn("Show folder");
+            folder.Click += (s, e) => Process.Start("explorer.exe", "/select,\"" + ConfigStore.Path + "\"");
+            var reload = T.Btn("Reload");
+            reload.Click += (s, e) => { app.ReloadConfig(); Close(); app.ShowSettings("General"); };
+            page.Add(Card("winzones.json", ConfigStore.Path, open, folder, reload));
+            return page;
+        }
+
+        /// GitHub (OTA) update settings; the Store build shows a single "updated by the Store" card instead.
+        private void BuildUpdateCards(Page page)
+        {
             var autoCheck = new Toggle();
             autoCheck.SetInitial(Cfg.CheckForUpdates);
             autoCheck.CheckedChanged += (s, e) => { Cfg.CheckForUpdates = autoCheck.Checked; app.SaveConfig(); app.SetUpdateChecks(autoCheck.Checked); };
@@ -726,16 +786,6 @@ namespace WinZones
             updateButton.Click += (s, e) => OnUpdateButton();
             page.Add(Card("WinZones " + AppInfo.Version, null, updateStatus, updateButton));
             ShowUpdateState(app.PendingUpdate, null);
-
-            page.Add(Section("Configuration file"));
-            var open = T.Btn("Open");
-            open.Click += (s, e) => Process.Start("notepad.exe", "\"" + ConfigStore.Path + "\"");
-            var folder = T.Btn("Show folder");
-            folder.Click += (s, e) => Process.Start("explorer.exe", "/select,\"" + ConfigStore.Path + "\"");
-            var reload = T.Btn("Reload");
-            reload.Click += (s, e) => { app.ReloadConfig(); Close(); app.ShowSettings("General"); };
-            page.Add(Card("winzones.json", ConfigStore.Path, open, folder, reload));
-            return page;
         }
 
         // ----------------------------------------------------------------- updates (General page)
