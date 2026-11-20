@@ -120,6 +120,7 @@ namespace WinKit
         public const string Rename = "", Home = "", Brush = "", Code = "", Warning = "";
         public const string Folder = "", Refresh = "", Heart = "", Link = "", Window = "";
         public const string Fill = "", Center = "", Layers = "", Startup = "", Globe = "";
+        public static readonly string Download = ((char)0xE896).ToString(), Update = ((char)0xE777).ToString();
     }
 
     // =====================================================================================

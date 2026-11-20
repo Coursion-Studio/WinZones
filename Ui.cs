@@ -22,7 +22,7 @@ namespace WinZones
     internal static class AppInfo
     {
         public const string Name = "WinZones";
-        public const string Version = "1.1.0";
+        public const string Version = "1.2.0";
         public const string Author = "kuraydev";
         public const string Url = "https://github.com/Coursion-Studio/WinZones";
         public const string Tagline = "Zones, hotkeys and smart auto-arrange for Windows";
@@ -710,6 +710,23 @@ namespace WinZones
             minimized.CheckedChanged += (s, e) => { Cfg.IncludeMinimizedInAutoArrange = minimized.Checked; app.SaveConfig(); };
             page.Add(Card("Include minimized windows", "Restore minimized windows and arrange them too.", minimized));
 
+            page.Add(Section("Updates"));
+            var autoCheck = new Toggle();
+            autoCheck.SetInitial(Cfg.CheckForUpdates);
+            autoCheck.CheckedChanged += (s, e) => { Cfg.CheckForUpdates = autoCheck.Checked; app.SaveConfig(); app.SetUpdateChecks(autoCheck.Checked); };
+            page.Add(Card("Check for updates automatically", "Looks for a new release on GitHub at startup and every few hours.", autoCheck));
+
+            var autoInstall = new Toggle();
+            autoInstall.SetInitial(Cfg.AutoInstallUpdates);
+            autoInstall.CheckedChanged += (s, e) => { Cfg.AutoInstallUpdates = autoInstall.Checked; app.SaveConfig(); };
+            page.Add(Card("Install updates automatically", "Download, verify and install new versions in the background, then restart.", autoInstall));
+
+            updateStatus = T.Lbl("", 9f, false, T.Sub);
+            updateButton = T.Btn("Check now", false, Icons.Refresh);
+            updateButton.Click += (s, e) => OnUpdateButton();
+            page.Add(Card("WinZones " + AppInfo.Version, null, updateStatus, updateButton));
+            ShowUpdateState(app.PendingUpdate, null);
+
             page.Add(Section("Configuration file"));
             var open = T.Btn("Open");
             open.Click += (s, e) => Process.Start("notepad.exe", "\"" + ConfigStore.Path + "\"");
@@ -719,6 +736,43 @@ namespace WinZones
             reload.Click += (s, e) => { app.ReloadConfig(); Close(); app.ShowSettings("General"); };
             page.Add(Card("winzones.json", ConfigStore.Path, open, folder, reload));
             return page;
+        }
+
+        // ----------------------------------------------------------------- updates (General page)
+        private Label updateStatus;
+        private KitButton updateButton;
+
+        private void OnUpdateButton()
+        {
+            if (app.PendingUpdate != null) { app.InstallUpdate(false); return; }
+            updateStatus.Text = "Checking...";
+            updateButton.Enabled = false;
+            app.CheckForUpdates(true, (info, error) =>
+            {
+                if (IsDisposed) return;
+                updateButton.Enabled = true;
+                ShowUpdateState(info, error);
+            });
+        }
+
+        private void ShowUpdateState(UpdateInfo info, string error)
+        {
+            if (info != null)
+            {
+                updateStatus.Text = "Version " + info.Version + " is available";
+                updateStatus.ForeColor = Theme.Success;
+                updateButton.Text = "Install " + info.Version;
+                updateButton.Style = ButtonStyle.Primary;
+                updateButton.IconGlyph = Icons.Download;
+            }
+            else
+            {
+                updateStatus.Text = error ?? (updateStatus.Text == "Checking..." ? "You're up to date" : "");
+                updateStatus.ForeColor = error != null ? Theme.Warning : T.Sub;
+                updateButton.Text = "Check now";
+                updateButton.Style = ButtonStyle.Secondary;
+                updateButton.IconGlyph = Icons.Refresh;
+            }
         }
 
         // ----------------------------------------------------------------- Layouts

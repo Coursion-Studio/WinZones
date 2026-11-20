@@ -44,6 +44,8 @@
 
 **Requirements:** Windows 10 (1903+) or Windows 11. .NET Framework 4.8 is required and is already part of Windows, so there's nothing extra to install.
 
+**Updates:** from v1.2.0 on, WinZones keeps itself up to date. It tells you when a new version is out, or installs it for you if you turn on **Settings → General → Updates → Install updates automatically**. If you have v1.1.0 or older, download v1.2.0 once by hand.
+
 ## ✨ Features
 
 |   |   |
@@ -55,6 +57,7 @@
 | ⚡ **Command menu** | Right-click the tray icon for a Raycast-style palette: type to filter layouts and commands, then use the arrow keys and <kbd>Enter</kbd>. |
 | 🎞️ **Smooth, but light** | Windows glide into place, and the overlay fades and cross-fades. Only small layers are redrawn, so it stays smooth even on 5K ultrawides. |
 | ↩️ **Undo** | <kbd>Win</kbd>+<kbd>Alt</kbd>+<kbd>Z</kbd> puts windows back where they were, and you can undo several steps. |
+| 🔄 **Automatic updates** | WinZones checks GitHub for new releases, verifies every download and updates itself in a few seconds. Your settings are kept. |
 | 🪶 **Tiny & private** | A single ~280 KB exe with no installer, no runtime to download, no telemetry and no internet access. Portable mode is built in. |
 
 ## 📸 Screenshots
@@ -143,6 +146,18 @@ Windows that run as administrator can only be moved by apps that also run as adm
 </details>
 
 <details>
+<summary><b>How do updates work? Are they safe?</b></summary>
+
+A few seconds after start, and then every 6 hours, WinZones asks GitHub for the latest release of this repo. Turn this off in **Settings → General → Updates**. When there is a newer version, WinZones:
+
+1. downloads `WinZones-x.y.z-win.zip` from the release;
+2. checks its SHA-256 against **both** the release's `.sha256` file and GitHub's own checksum, and confirms the exe inside reports the new version. It discards anything that doesn't match;
+3. swaps the exe and restarts. Your settings stay in `%APPDATA%WinZones`.
+
+WinZones only talks to github.com for this, and it sends no data about you. If WinZones lives in a folder it can't write to (such as Program Files), it opens the download page instead.
+</details>
+
+<details>
 <summary><b>Where are my settings stored?</b></summary>
 
 Settings live in `%APPDATA%\WinZones\winzones.json`. **Portable mode:** put a `winzones.json`, or an empty `portable.txt`, next to `WinZones.exe` and that file is used instead.
@@ -162,13 +177,16 @@ There's nothing to install, because the C# compiler that ships with Windows is e
 git clone https://github.com/Coursion-Studio/WinZones.git
 cd WinZones
 build.bat          :: -> WinZones.exe
-release.bat        :: -> dist\WinZones-<version>-win.zip (+ .sha256)
-tools\make-demo.bat :: -> docs\demo.gif (README animation, rendered from the app's own drawing code)
+release.bat        :: -> dist\WinZones-<version>-win.zip (+ .sha256), the files the in-app updater downloads
+tools\make-demo.bat :: -> docs\demo.gif + docs\shot-*.png (README media, rendered from the app's own drawing code)
 ```
+
+> **Releasing:** tag releases `vX.Y.Z` and keep the asset names `release.bat` creates (`WinZones-X.Y.Z-win.zip` + `.sha256`). The in-app updater looks for exactly those, and it skips drafts and pre-releases.
 
 | File | What's inside |
 |---|---|
 | `WinZones.cs` | Core: zones, drag tracking, hotkeys, smart arrange, window animation, tray app |
+| `Updater.cs` | Over-the-air updates: GitHub release check, verified download, self-replace and restart |
 | `Overlay.cs` | Glass zone overlay: cached layered windows, gliding highlight, window preview |
 | `Ui.cs` | Settings window, icon artwork, app info / version |
 | `kit/` | **WinKit**, the reusable UI kit (see below) |

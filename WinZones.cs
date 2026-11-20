@@ -213,6 +213,8 @@ namespace WinZones
         public string DragModifier { get; set; }   // Shift | Ctrl | Alt | None
         public bool Notifications { get; set; }
         public bool IncludeMinimizedInAutoArrange { get; set; }
+        public bool CheckForUpdates { get; set; }
+        public bool AutoInstallUpdates { get; set; }
         public bool Animate { get; set; }
         public int AnimationMs { get; set; }
         public Dictionary<string, string> Hotkeys { get; set; }
@@ -228,6 +230,8 @@ namespace WinZones
             Notifications = true;
             IncludeMinimizedInAutoArrange = false;
             Animate = true;
+            CheckForUpdates = true;
+            AutoInstallUpdates = false;
             AnimationMs = 220;
             ActiveLayouts = new Dictionary<string, string>();
             IgnoreProcesses = new List<string> { "TextInputHost", "ShellExperienceHost", "StartMenuExperienceHost", "SearchHost", "LockApp", "PowerToys" };
@@ -1148,7 +1152,9 @@ namespace WinZones
         public event Action ConfigChanged;
         public Config Cfg { get { return cfg; } }
 
-        public App()
+        public App() : this(null) { }
+
+        public App(string updatedFrom)
         {
             string err;
             bool firstRun;
@@ -1178,12 +1184,104 @@ namespace WinZones
             winEventHook = N.SetWinEventHook(N.EVENT_SYSTEM_MOVESIZESTART, N.EVENT_SYSTEM_MOVESIZEEND, IntPtr.Zero,
                 winEventProc, 0, 0, N.WINEVENT_OUTOFCONTEXT | N.WINEVENT_SKIPOWNPROCESS);
 
+            // updates: first check shortly after start, then every 6 hours
+            updateTimer.Tick += (s, e) => { updateTimer.Interval = 6 * 60 * 60 * 1000; CheckForUpdates(false, null); };
+            SetUpdateChecks(cfg.CheckForUpdates);
+
             if (err != null)
                 WinKit.KitDialog.Info(null, "Settings file could not be read", "Defaults are used for now. A copy was saved as winzones.json.bad.\n\n" + err, true);
+            else if (updatedFrom != null)
+                WinKit.Toast.Show("Updated to " + AppInfo.Version, "WinZones was updated from " + updatedFrom + ". Your settings were kept.", WinKit.ToastKind.Success);
             else if (firstRun)
                 ShowSettings("General");
             else
                 Notify("WinZones is running. Shift+drag a window to snap, Win+Alt+A to auto-arrange. Click the tray icon for settings.");
+        }
+
+        // ----------------------------------------------------------------- over-the-air updates
+        private readonly System.Windows.Forms.Timer updateTimer = new System.Windows.Forms.Timer();
+        private bool updateBusy;
+
+        /// A newer release that was found but not installed yet (shown in the tray menu and settings).
+        public UpdateInfo PendingUpdate { get; private set; }
+
+        public void SetUpdateChecks(bool on)
+        {
+            updateTimer.Stop();
+            if (!on) return;
+            updateTimer.Interval = 15 * 1000;
+            updateTimer.Start();
+        }
+
+        /// Checks GitHub for a newer release. `done` (UI thread) gets the update or null, and an error message or null.
+        public void CheckForUpdates(bool manual, Action<UpdateInfo, string> done)
+        {
+            if (updateBusy) { if (done != null) done(PendingUpdate, null); return; }
+            updateBusy = true;
+            var ui = SynchronizationContext.Current;
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                UpdateInfo info = null;
+                string error = null;
+                try { info = Updater.CheckLatest(Updater.Current); }
+                catch (Exception ex) { error = "Could not check for updates: " + ex.Message; }
+                ui.Post(__ =>
+                {
+                    updateBusy = false;
+                    if (info != null)
+                    {
+                        bool isNew = PendingUpdate == null || PendingUpdate.Version != info.Version;
+                        PendingUpdate = info;
+                        if (!manual && cfg.AutoInstallUpdates) InstallUpdate(true);
+                        else if (!manual && isNew && cfg.Notifications)
+                            WinKit.Toast.Show("Update available: " + info.Version, "Right-click the tray icon and choose Update to install it.", WinKit.ToastKind.Info);
+                    }
+                    if (done != null) done(info, error);
+                }, null);
+            });
+        }
+
+        /// Downloads, verifies and installs the pending update, then restarts into the new version.
+        public void InstallUpdate(bool silent)
+        {
+            var info = PendingUpdate;
+            if (info == null || updateBusy) return;
+            if (!silent)
+            {
+                string summary = Updater.Summary(info.Notes);
+                if (!WinKit.KitDialog.Confirm(null, "Update to " + info.Version + "?",
+                        (summary.Length > 0 ? summary + "\n\n" : "") + "WinZones will restart in a moment. Your settings are kept.", "Update now"))
+                    return;
+            }
+            updateBusy = true;
+            if (!silent) WinKit.Toast.Show("Downloading " + info.Version + "...", "This only takes a few seconds.", WinKit.ToastKind.Info);
+            var ui = SynchronizationContext.Current;
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                string newExe = null, error = null;
+                try { newExe = Updater.Download(info); }
+                catch (Exception ex) { error = ex.Message; }
+                ui.Post(__ =>
+                {
+                    updateBusy = false;
+                    if (error != null) { WinKit.Toast.Show("Update failed", error, WinKit.ToastKind.Warning); return; }
+                    try
+                    {
+                        Updater.Apply(newExe, Application.ExecutablePath);
+                    }
+                    catch (UnauthorizedAccessException)
+                    {
+                        // e.g. installed under Program Files: let the user update manually
+                        WinKit.KitDialog.Info(null, "Can't update in this folder",
+                            "WinZones doesn't have permission to replace itself here. The download page will open so you can update manually.", true);
+                        try { Process.Start(info.PageUrl); } catch { }
+                        return;
+                    }
+                    catch (Exception ex) { WinKit.Toast.Show("Update failed", ex.Message, WinKit.ToastKind.Warning); return; }
+                    Updater.Restart(Application.ExecutablePath, AppInfo.Version);
+                    ExitThread();
+                }, null);
+            });
         }
 
         // ----------------------------------------------------------------- settings window
@@ -1575,6 +1673,14 @@ namespace WinZones
         public List<WinKit.MenuEntry> BuildMenuEntries()
         {
             var items = new List<WinKit.MenuEntry>();
+            if (PendingUpdate != null)
+            {
+                items.Add(WinKit.MenuEntry.Header("Update available"));
+                var up = WinKit.MenuEntry.Item("Update to " + PendingUpdate.Version, WinKit.Icons.Download, () => InstallUpdate(false));
+                up.IconColor = WinKit.Theme.Success;
+                up.Keywords = "update upgrade new version";
+                items.Add(up);
+            }
             items.Add(WinKit.MenuEntry.Header("Actions"));
             items.Add(WinKit.MenuEntry.Item("Auto-arrange all windows", WinKit.Icons.Sparkle, AutoArrange, Hotkey("AutoArrange")));
             items.Add(WinKit.MenuEntry.Item("Undo last move", WinKit.Icons.Undo, Undo, Hotkey("Undo")));
@@ -1699,26 +1805,44 @@ namespace WinZones
             // build helper: WinZones.exe --make-icon <path.ico>
             if (args.Length == 2 && args[0] == "--make-icon") { IconArt.WriteIco(args[1]); return; }
 
-            bool created;
-            using (var mutex = new Mutex(true, "WinZones.SingleInstance", out created))
+            // started by the updater: WinZones.exe --after-update <previous version>
+            string updatedFrom = args.Length == 2 && args[0] == "--after-update" ? args[1] : null;
+
+            using (var mutex = new Mutex(false, "WinZones.SingleInstance"))
             using (var showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, "WinZones.ShowSettings"))
             {
-                if (!created)
+                // after an update, wait for the old version to exit instead of handing over to it
+                if (!AcquireInstance(mutex, updatedFrom != null ? 20000 : 0))
                 {
                     showSignal.Set();   // already running: ask that instance to open its settings window
                     return;
                 }
-                try { N.SetProcessDpiAwarenessContext(new IntPtr(-4)); } catch { }  // per-monitor DPI aware v2
-                Application.EnableVisualStyles();
-                Application.SetCompatibleTextRenderingDefault(false);
-                var app = new App();
-                var ui = SynchronizationContext.Current;
-                ThreadPool.RegisterWaitForSingleObject(showSignal, (state, timedOut) =>
+                try
                 {
-                    if (ui != null) ui.Post(_ => app.ShowSettings(null), null);
-                }, null, -1, false);
-                Application.Run(app);
+                    try { N.SetProcessDpiAwarenessContext(new IntPtr(-4)); } catch { }  // per-monitor DPI aware v2
+                    Application.EnableVisualStyles();
+                    Application.SetCompatibleTextRenderingDefault(false);
+                    Updater.Cleanup();
+                    var app = new App(updatedFrom);
+                    var ui = SynchronizationContext.Current;
+                    ThreadPool.RegisterWaitForSingleObject(showSignal, (state, timedOut) =>
+                    {
+                        if (ui != null) ui.Post(_ => app.ShowSettings(null), null);
+                    }, null, -1, false);
+                    Application.Run(app);
+                }
+                finally
+                {
+                    try { mutex.ReleaseMutex(); } catch { }
+                }
             }
+        }
+
+        /// Takes the single-instance lock, waiting up to `waitMs` (an exiting instance counts as released).
+        internal static bool AcquireInstance(Mutex mutex, int waitMs)
+        {
+            try { return mutex.WaitOne(waitMs, false); }
+            catch (AbandonedMutexException) { return true; }
         }
     }
 }
