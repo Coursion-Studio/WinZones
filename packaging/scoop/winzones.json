@@ -1,10 +1,10 @@
 {
-    "version": "1.4.0",
+    "version": "1.4.1",
     "description": "Snap windows into zones with Shift + drag, and arrange every window with one key.",
     "homepage": "https://github.com/Coursion-Studio/WinZones",
     "license": "MIT",
-    "url": "https://github.com/Coursion-Studio/WinZones/releases/download/v1.4.0/WinZones-1.4.0-win.zip",
-    "hash": "ddd118d4690d5162af4c68dbfe2d03346a0f8e0cca695bc117fd79f1012e19c4",
+    "url": "https://github.com/Coursion-Studio/WinZones/releases/download/v1.4.1/WinZones-1.4.1-win.zip",
+    "hash": "1818222681321ee17bb151b23cc0ce12428d0c6d83a6de83bcdcbe7f53964661",
     "bin": "WinZones.exe",
     "shortcuts": [["WinZones.exe", "WinZones"]],
     "checkver": "github",
