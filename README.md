@@ -24,6 +24,7 @@
   &nbsp;·&nbsp; <a href="#-screenshots">Screenshots</a>
   &nbsp;·&nbsp; <a href="#%EF%B8%8F-shortcuts">Shortcuts</a>
   &nbsp;·&nbsp; <a href="#-how-smart-arrange-works">Smart arrange</a>
+  &nbsp;·&nbsp; <a href="#-languages">Languages</a>
   &nbsp;·&nbsp; <a href="#-faq">FAQ</a>
 </p>
 
@@ -68,7 +69,7 @@ Settings open on first launch, and WinZones lives in the system tray next to the
 | ⚡ **Command menu** | Right-click the tray icon for a Raycast-style palette: type to filter layouts and commands, then use the arrow keys and <kbd>Enter</kbd>. |
 | 🎞️ **Smooth, but light** | Windows glide into place, and the overlay fades and cross-fades. Only small layers are redrawn, so it stays smooth even on 5K ultrawides. |
 | ↩️ **Undo** | <kbd>Win</kbd>+<kbd>Alt</kbd>+<kbd>Z</kbd> puts windows back where they were, and you can undo several steps. |
-| 🌍 **Your language** | English, Deutsch, Español, Français, Italiano, Nederlands, Polski, Português (Brasil), Türkçe, Русский, 日本語, 한국어 and 简体中文. WinZones follows your Windows language, or pick one in **Settings → General**; it switches instantly. |
+| 🌍 **Your language** | English, Deutsch, Español, Français, Italiano, Nederlands, Polski, Português (Brasil), Türkçe, Русский, 日本語, 한국어 and 简体中文. WinZones follows your Windows language, or pick one in **Settings → General**; it switches instantly. [More about languages](#-languages). |
 | 👋 **Welcome tour & What's New** | A short tour on first start (Shift+drag, auto-arrange, layouts, the settings that matter), and after each update a window that shows what changed. |
 | 🔄 **Automatic updates** | WinZones checks GitHub for new releases, verifies every download and updates itself in a few seconds. Your settings are kept. |
 | 🧰 **Scriptable** | `WinZones.exe --workspace "Coding"`, `--arrange`, `--pause`, `--resume`, `--apply-rules`. Great for Stream Deck, AutoHotkey or a desktop shortcut. |
@@ -162,12 +163,43 @@ Run these while WinZones is running (or to start it and do the thing right away)
 | `WinZones.exe --pause` · `--resume` · `--toggle-pause` | Pause or resume WinZones |
 | `WinZones.exe --settings` | Open Settings |
 
+## 🌍 Languages
+
+WinZones is fully translated into 13 languages: Settings, the tray menu, notifications, dialogs, the welcome tour and What's New.
+
+| Language | Shown in WinZones as | Code |
+|---|---|---|
+| English | English | `en` |
+| German | Deutsch | `de` |
+| Spanish | Español | `es` |
+| French | Français | `fr` |
+| Italian | Italiano | `it` |
+| Dutch | Nederlands | `nl` |
+| Polish | Polski | `pl` |
+| Portuguese (Brazil) | Português (Brasil) | `pt-BR` |
+| Turkish | Türkçe | `tr` |
+| Russian | Русский | `ru` |
+| Japanese | 日本語 | `ja` |
+| Korean | 한국어 | `ko` |
+| Chinese (Simplified) | 简体中文 | `zh-Hans` |
+
+**Which language you get.** Out of the box WinZones uses your Windows display language. Regional variants are matched too: German (Austria) gets German, Portuguese (Portugal) gets Brazilian Portuguese. If your Windows language isn't in the list, WinZones uses English. Traditional Chinese (Taiwan, Hong Kong) also uses English for now rather than showing Simplified characters.
+
+**Changing it.** There are two places, and both switch instantly without a restart:
+
+- **Settings → General → Language.** Pick a language, or **Same as Windows** to follow your Windows language again (it shows which language that is right now).
+- **The welcome tour.** Its first page has a language dropdown, so you can choose before anything else. To run the tour again, open **Settings → About → Welcome tour**.
+
+The choice is saved as `"Language"` in `winzones.json` (see [where settings are stored](#-faq)): `""` means same as Windows, otherwise one of the codes above.
+
+**Something reads oddly, or your language is missing?** Translations are plain JSON files in [`lang/`](lang). [`lang/README.md`](lang/README.md) explains how to fix a string or add a language, and pull requests are very welcome.
+
 ## ❓ FAQ
 
 <details>
 <summary><b>How do I change the language, or help translate?</b></summary>
 
-WinZones uses your Windows display language when it has a translation for it, and English otherwise. To pick another one, open **Settings → General → Language**; the change is instant. Translations live in `lang\<code>.json` (English text → translation). To add or fix one, run `tests\run-tests.bat`, then `obj\tests\WinZones.Tests.exe --dump-keys keys.json` for the full list of strings, edit the JSON file (a new language also needs a line in `L.Languages` in `Lang.cs`) and run the tests again: they check that every string is translated and every `{0}` placeholder is kept.
+Open **Settings → General → Language**; the change is instant. **Same as Windows** follows your Windows display language. See [Languages](#-languages) for the full list, and [`lang/README.md`](lang/README.md) to fix a translation or add a language.
 </details>
 
 <details>
