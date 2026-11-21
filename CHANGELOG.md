@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.1 — crisper menus and notifications
+
+_2026-11-21_
+
+- **Sharper menus:** the tray menu and notifications now use ClearType text and a soft shadow, and they are drawn at the right size on every monitor, even when your monitors use different scaling.
+
 ## 1.4.0 — languages, what's new and a welcome tour
 
 _2026-11-21_

@@ -181,6 +181,78 @@ namespace WinKit
             }
         }
 
+        private static readonly Dictionary<string, Bitmap> shadows = new Dictionary<string, Bitmap>();
+
+        /// Soft, blurred drop shadow under a rounded rect (cached per size; no banding like Shadow()).
+        public static void SoftShadow(Graphics g, RectangleF r, float radius, float blur, int alpha, float offsetY)
+        {
+            int b = Math.Max(2, (int)Math.Ceiling(blur));
+            int rw = Math.Max(1, (int)Math.Round(r.Width)), rh = Math.Max(1, (int)Math.Round(r.Height));
+            string key = rw + "x" + rh + "|" + radius + "|" + b + "|" + alpha;
+            Bitmap bmp;
+            if (!shadows.TryGetValue(key, out bmp))
+            {
+                if (shadows.Count > 12) { foreach (var old in shadows.Values) old.Dispose(); shadows.Clear(); }
+                bmp = BuildShadow(rw, rh, radius, b, alpha);
+                shadows[key] = bmp;
+            }
+            var oldMode = g.InterpolationMode;
+            g.InterpolationMode = InterpolationMode.NearestNeighbor;
+            g.DrawImage(bmp, (float)Math.Round(r.X) - 2 * b, (float)Math.Round(r.Y + offsetY) - 2 * b, bmp.Width, bmp.Height);
+            g.InterpolationMode = oldMode;
+        }
+
+        private static Bitmap BuildShadow(int rw, int rh, float radius, int b, int alpha)
+        {
+            int w = rw + 4 * b, h = rh + 4 * b;
+            var a = new float[w * h];
+            using (var mask = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+            {
+                using (var g = Graphics.FromImage(mask))
+                {
+                    g.SmoothingMode = SmoothingMode.AntiAlias;
+                    FillRound(g, new RectangleF(2 * b, 2 * b, rw, rh), radius, Color.White);
+                }
+                var data = mask.LockBits(new Rectangle(0, 0, w, h), System.Drawing.Imaging.ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+                var px = new byte[w * h * 4];
+                Marshal.Copy(data.Scan0, px, 0, px.Length);
+                mask.UnlockBits(data);
+                for (int i = 0; i < w * h; i++) a[i] = px[i * 4 + 3] / 255f;
+            }
+            // three box blurs in each direction ~ a gaussian with sigma ~ b/2
+            int k = Math.Max(1, b / 2);
+            var tmp = new float[w * h];
+            for (int pass = 0; pass < 3; pass++)
+            {
+                BoxBlur(a, tmp, w, h, k, true);
+                BoxBlur(tmp, a, w, h, k, false);
+            }
+            var outPx = new byte[w * h * 4];
+            for (int i = 0; i < w * h; i++) outPx[i * 4 + 3] = (byte)Math.Min(255, a[i] * alpha);   // black, premultiplied
+            var result = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+            var rd = result.LockBits(new Rectangle(0, 0, w, h), System.Drawing.Imaging.ImageLockMode.WriteOnly, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+            Marshal.Copy(outPx, 0, rd.Scan0, outPx.Length);
+            result.UnlockBits(rd);
+            return result;
+        }
+
+        private static void BoxBlur(float[] src, float[] dst, int w, int h, int k, bool horizontal)
+        {
+            int n = horizontal ? w : h, lines = horizontal ? h : w;
+            float inv = 1f / (2 * k + 1);
+            for (int line = 0; line < lines; line++)
+            {
+                Func<int, int> at = i => horizontal ? line * w + i : i * w + line;
+                float sum = 0;
+                for (int i = -k; i <= k; i++) sum += src[at(Math.Max(0, Math.Min(n - 1, i)))];
+                for (int i = 0; i < n; i++)
+                {
+                    dst[at(i)] = sum * inv;
+                    sum += src[at(Math.Min(n - 1, i + k + 1))] - src[at(Math.Max(0, i - k))];
+                }
+            }
+        }
+
         public static void Icon(Graphics g, string glyph, RectangleF r, Color c, float px)
         {
             var old = g.TextRenderingHint;
@@ -362,8 +434,18 @@ namespace WinKit
             return Screen.FromPoint(p).WorkingArea;
         }
 
+        [DllImport("shcore.dll")] private static extern int GetDpiForMonitor(IntPtr hMon, int type, out uint dpiX, out uint dpiY);
+
+        /// Display scale of the monitor containing a point (1.0 = 100 %), so popups are crisp on every monitor.
         public static float ScaleAt(Point p)
         {
+            try
+            {
+                uint dx, dy;
+                if (GetDpiForMonitor(MonitorFromPoint(new POINT(p.X, p.Y), 2), 0 /*MDT_EFFECTIVE_DPI*/, out dx, out dy) == 0 && dx > 0)
+                    return Math.Max(1f, dx / 96f);
+            }
+            catch { }   // Windows 7/8.0: no per-monitor DPI
             using (var g = Graphics.FromHwnd(IntPtr.Zero)) return Math.Max(1f, g.DpiX / 96f);
         }
 

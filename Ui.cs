@@ -22,7 +22,7 @@ namespace WinZones
     internal static class AppInfo
     {
         public const string Name = "WinZones";
-        public const string Version = "1.4.0";
+        public const string Version = "1.4.1";
         public const string Author = "kuraydev";
         public const string Url = "https://github.com/Coursion-Studio/WinZones";
         public const string Tagline = "Zones, hotkeys and smart auto-arrange for Windows";

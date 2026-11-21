@@ -321,11 +321,11 @@ namespace WinKit
         public void PaintMenu(Graphics g)
         {
             Gfx.Quality(g);
-            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;   // the panel is opaque, so ClearType works on the layered window
             float r = Theme.RadiusLg * sc;
 
-            Gfx.Shadow(g, panel, r, 22 * sc, 150, 8 * sc);
-            Gfx.FillRound(g, panel, r, Color.FromArgb(250, Theme.Popup.R, Theme.Popup.G, Theme.Popup.B));
+            Gfx.SoftShadow(g, panel, r, 10 * sc, 150, 4 * sc);
+            Gfx.FillRound(g, panel, r, Theme.Popup);
             // subtle top sheen
             using (var p = Gfx.Round(panel, r))
             using (var b = new LinearGradientBrush(new RectangleF(panel.X, panel.Y, panel.Width, 80 * sc), Color.FromArgb(14, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 90f))
@@ -551,9 +551,9 @@ namespace WinKit
             string glyph = kind == ToastKind.Success ? Icons.Check : kind == ToastKind.Warning || kind == ToastKind.Error ? Icons.Warning : Icons.Info;
             {
                 Gfx.Quality(g);
-                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
-                Gfx.Shadow(g, panel, 14 * sc, 18 * sc, 160, 6 * sc);
-                Gfx.FillRound(g, panel, 14 * sc, Color.FromArgb(250, Theme.Popup.R, Theme.Popup.G, Theme.Popup.B));
+                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+                Gfx.SoftShadow(g, panel, 14 * sc, 9 * sc, 160, 4 * sc);
+                Gfx.FillRound(g, panel, 14 * sc, Theme.Popup);
                 Gfx.StrokeRound(g, panel, 14 * sc, Color.FromArgb(36, 255, 255, 255), 1f);
                 var ic = new RectangleF(panel.X + 16 * sc, panel.Y + (H - 30 * sc) / 2, 30 * sc, 30 * sc);
                 if (AppIcon != null && kind == ToastKind.Info) g.DrawImage(AppIcon, ic);
